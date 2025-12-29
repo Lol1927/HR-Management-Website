@@ -1,0 +1,68 @@
+{
+  "sidebar": {
+    "logo": "HR MANAGE",
+    "staff_management": "직원 관리",
+    "events": "이벤트 관리"
+  },
+  "staff_management": {
+    "header_title": "직원 현황",
+    "header_subtitle": "전체 직원 목록을 관리하고 수정할 수 있습니다.",
+    "btn_register": "신규 등록",
+    "table_th_info": "직원 정보",
+    "table_th_status": "상태",
+    "table_th_region": "근무 가능 지역",
+    "table_th_manage": "관리",
+    "empty_message": "등록된 직원이 없습니다."
+  },
+  "modal": {
+    "title_add": "신규 등록",
+    "title_edit": "정보 수정",
+    "label_name": "성함",
+    "label_resident": "주민등록번호",
+    "label_contact": "연락처",
+    "label_bank": "은행/계좌",
+    "label_region": "근무 가능 지역",
+    "label_status": "상태",
+    "placeholder_resident": "000000-0000000",
+    "placeholder_contact": "010-0000-0000",
+    "placeholder_bank_select": "은행",
+    "placeholder_account": "계좌번호",
+    "btn_save": "저장하기",
+    "btn_edit_done": "정보 수정 완료",
+    "limit_alert": "최대 5개 선택 가능"
+  },
+  "detail": {
+    "member_suffix": "멤버",
+    "label_contact": "연락처",
+    "label_resident": "주민등록번호",
+    "label_account": "계좌정보",
+    "label_region": "근무 가능 지역"
+  },
+  "common": {
+    "status_active": "활성",
+    "status_inactive": "비활성",
+    "confirm_delete": "정말 삭제할까요?",
+    "save_success": "성공적으로 저장되었습니다.",
+    "save_fail": "저장 실패",
+    "load_fail": "로딩 실패"
+  },
+  "events": {
+    "header_title": "이벤트 및 인력 관리",
+    "confirmed_schedule": "확정 스케줄",
+    "btn_assign": "인력 배정 및 등록",
+    "status_selected": "선택됨",
+    "status_range_selected": "선택됨"
+  },
+  "event_view": {
+    "confirm_delete_all": "'{{title}}' 행사 전체를 삭제하시겠습니까?",
+    "confirm_remove_staff": "이 직원을 배정에서 제외하시겠습니까?",
+    "success_delete": "행사가 성공적으로 삭제되었습니다.",
+    "success_remove_staff": "해당 직원이 제외되었습니다.",
+    "error_update": "업데이트 실패",
+    "tooltip_edit": "수정하기",
+    "tooltip_delete": "전체 삭제",
+    "empty_staff": "배정된 인력 정보가 없습니다.",
+    "label_date": "날짜"
+  }
+  
+}

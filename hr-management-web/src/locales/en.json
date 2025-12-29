@@ -1,0 +1,67 @@
+{
+  "sidebar": {
+    "logo": "HR MANAGE",
+    "staff_management": "Staff Management",
+    "events": "Events"
+  },
+  "staff_management": {
+    "header_title": "Employees Status",
+    "header_subtitle": "You can manage and edit the entire employee list.",
+    "btn_register": "Register",
+    "table_th_info": "Employee Info",
+    "table_th_status": "Status",
+    "table_th_region": "Work Regions",
+    "table_th_manage": "Manage",
+    "empty_message": "No employees registered."
+  },
+  "modal": {
+    "title_add": "New Registration",
+    "title_edit": "Edit Information",
+    "label_name": "Full Name",
+    "label_resident": "Resident ID",
+    "label_contact": "Contact",
+    "label_bank": "Bank/Account",
+    "label_region": "Available Regions",
+    "label_status": "Status",
+    "placeholder_resident": "000000-0000000",
+    "placeholder_contact": "010-0000-0000",
+    "placeholder_bank_select": "Bank",
+    "placeholder_account": "Account Number",
+    "btn_save": "Save",
+    "btn_edit_done": "Update Info",
+    "limit_alert": "Up to 5 can be selected"
+  },
+  "detail": {
+    "member_suffix": "Member",
+    "label_contact": "Contact",
+    "label_resident": "Resident ID",
+    "label_account": "Bank Info",
+    "label_region": "Available Regions"
+  },
+  "common": {
+    "status_active": "Active",
+    "status_inactive": "Inactive",
+    "confirm_delete": "Are you sure you want to delete?",
+    "save_success": "Saved successfully.",
+    "save_fail": "Save failed",
+    "load_fail": "Load failed"
+  },
+  "events": {
+    "header_title": "Events & Staffing",
+    "confirmed_schedule": "Confirmed Schedule",
+    "btn_assign": "Assign Staff",
+    "status_selected": "selected",
+    "status_range_selected": "selected"
+  },
+  "event_view": {
+    "confirm_delete_all": "Are you sure you want to delete the entire event '{{title}}'?",
+    "confirm_remove_staff": "Are you sure you want to remove this staff from the assignment?",
+    "success_delete": "The event has been successfully deleted.",
+    "success_remove_staff": "The staff has been removed.",
+    "error_update": "Update failed",
+    "tooltip_edit": "Edit",
+    "tooltip_delete": "Delete All",
+    "empty_staff": "No staff assigned for this event.",
+    "label_date": "Date"
+  }
+}

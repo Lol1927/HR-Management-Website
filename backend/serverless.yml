@@ -1,0 +1,142 @@
+service: hr-management-api
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-2
+  # 환경 변수 정의
+  environment:
+    EMPLOYEES_TABLE: ${self:service}-employees-${sls:stage}
+    EVENTS_TABLE: Events
+    POSITIONS_TABLE: PositionsTable  # 이 줄이 누락되어 에러가 발생했었습니다.
+
+  iam:
+    role:
+      statements:
+        # 1. 직원 테이블 권한
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.EMPLOYEES_TABLE}"
+
+        # 2. 이벤트 테이블 권한
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.EVENTS_TABLE}"
+
+        # 3. 포지션 테이블 권한
+        - Effect: Allow
+          Action:
+            - dynamodb:Scan
+            - dynamodb:PutItem
+            - dynamodb:DeleteItem
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.POSITIONS_TABLE}"
+
+functions:
+  # --- 기존 직원 관리 함수 ---
+  createEmployee:
+    handler: functions/createEmployee.handler
+    events:
+      - http:
+          path: employees
+          method: post
+          cors: true
+
+  getEmployees:
+    handler: functions/getEmployees.handler
+    events:
+      - http:
+          path: employees
+          method: get
+          cors: true
+
+  updateEmployee:
+    handler: functions/updateEmployee.handler
+    events:
+      - http:
+          path: employees/{id}
+          method: put
+          cors: true
+
+  deleteEmployee:
+    handler: functions/deleteEmployee.handler
+    events:
+      - http:
+          path: employees/{id}
+          method: delete
+          cors: true
+
+  # --- 기존 이벤트 관리 함수 ---
+  eventHandler:
+    handler: functions/eventHandler.handler 
+    events:
+      - http:
+          path: events
+          method: get
+          cors: true
+      - http:
+          path: events
+          method: post
+          cors: true
+      - http:
+          path: events
+          method: put
+          cors: true
+      - http:
+          path: events/{id}
+          method: delete
+          cors: true
+
+  # --- 포지션 관리 함수 (수정됨) ---
+  positionHandler:
+    handler: functions/positionHandler.handler
+    events:
+      - http:
+          path: positions
+          method: get
+          cors: true
+      - http:
+          path: positions
+          method: post
+          cors: true
+      - http:
+          path: positions/{name}
+          method: delete
+          cors: true
+
+resources:
+  Resources:
+    # 직원 테이블
+    EmployeesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.EMPLOYEES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        
+    # 포지션 테이블
+    PositionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.POSITIONS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: name
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST

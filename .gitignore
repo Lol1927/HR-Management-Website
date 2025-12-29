@@ -1,0 +1,43 @@
+# Dependency 관련 (이미지 내 node_modules 제외 요청 반영)
+node_modules/
+jspm_packages/
+.npm/
+.eslintcache
+
+# 환경 변수 및 보안 파일 (이미지 내 .env 제외 요청 반영)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# Serverless Framework 관련
+.serverless/
+.serverless_plugins/
+
+# 빌드 결과물 및 임시 파일
+dist/
+build/
+out/
+.next/
+.cache/
+
+# 로그 파일
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 운영체제 및 에디터 설정
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.bak
+
+# 테스팅
+coverage/
+.nyc_output

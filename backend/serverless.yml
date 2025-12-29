@@ -8,7 +8,8 @@ provider:
   environment:
     EMPLOYEES_TABLE: ${self:service}-employees-${sls:stage}
     EVENTS_TABLE: Events
-    POSITIONS_TABLE: PositionsTable  # 이 줄이 누락되어 에러가 발생했었습니다.
+    POSITIONS_TABLE: PositionsTable  
+    WORKPLACE_TABLE: WorkplaceTable
 
   iam:
     role:
@@ -40,6 +41,16 @@ provider:
             - dynamodb:PutItem
             - dynamodb:DeleteItem
           Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.POSITIONS_TABLE}"
+
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.WORKPLACE_TABLE}"
 
 functions:
   # --- 기존 직원 관리 함수 ---
@@ -113,6 +124,22 @@ functions:
           method: delete
           cors: true
 
+  workplaceHandler:
+    handler: functions/workplaceHandler.handler
+    events:
+      - http:
+          path: workplace
+          method: get
+          cors: true
+      - http:
+          path: workplace
+          method: post
+          cors: true
+      - http:
+          path: workplace/{placeName}
+          method: delete
+          cors: true
+
 resources:
   Resources:
     # 직원 테이블
@@ -138,5 +165,17 @@ resources:
             AttributeType: S
         KeySchema:
           - AttributeName: name
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    WorkplaceTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.WORKPLACE_TABLE}
+        AttributeDefinitions:
+          - AttributeName: placeName
+            AttributeType: S
+        KeySchema:
+          - AttributeName: placeName
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST

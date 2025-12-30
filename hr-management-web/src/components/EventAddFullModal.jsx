@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users as UsersIcon, Search, Check, Plus } from 'lucide-react';
+import { X, Users as UsersIcon, Search, Check } from 'lucide-react';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -17,7 +17,7 @@ const formatPay = (value) => {
   return number.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData }) => {
+const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,workplaces }) => {
   // --- 상태 관리 ---
   const [title, setTitle] = useState(initialData?.title || '');
   const [startTime, setStartTime] = useState('09:00');
@@ -33,6 +33,7 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [allAssignedData, setAllAssignedData] = useState(initialData?.assignedStaff || []);
   const [staffTimes, setStaffTimes] = useState({});
+  const [selectedRegion, setSelectedRegion] = useState("모든 지역");
 
   // --- 날짜 계산 ---
   const getDatesInRange = (start, end) => {
@@ -46,6 +47,15 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData 
     }
     return dates;
   };
+
+  const filteredStaffList = employees.filter(e => {
+    const matchesName = e.name.includes(searchName);
+    const matchesRegion = 
+      selectedRegion === "모든 지역" || 
+      (e.availableWork && e.availableWork.includes(selectedRegion));
+    
+    return matchesName && matchesRegion;
+  });
 
   const dateList = getDatesInRange(selectionInfo.startStr, selectionInfo.endStr);
   const currentEditDate = dateList[currentIndex];
@@ -241,13 +251,33 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData 
           </div>
 
           {/* 직원 검색 및 리스트 */}
-          <div className="relative mb-4">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-200 text-sm outline-none" placeholder="직원 검색" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
+          <div className="flex gap-2 mb-4">
+            {/* 이름 검색 */}
+            <div className="relative flex-[2]">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-blue-500" 
+                placeholder="직원 검색" 
+                value={searchName} 
+                onChange={(e) => setSearchName(e.target.value)} 
+              />
+            </div>
+
+            {/* 지역 필터 드롭다운 추가 */}
+            <select 
+              value={selectedRegion}
+              onChange={(e) => setSelectedRegion(e.target.value)}
+              className="flex-1 px-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-600 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="모든 지역">모든 지역</option>
+              {workplaces && workplaces.map((wp, idx) => (
+                <option key={idx} value={wp}>{wp}</option>
+              ))}
+            </select>
           </div>
           
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-            {employees.filter(e => e.name.includes(searchName)).map(staff => (
+            {filteredStaffList.map(staff => (
               <div key={staff.id} className={`p-5 rounded-[30px] border-2 transition-all bg-white ${selectedStaffIds.includes(staff.id) ? "border-blue-500 shadow-md" : "border-transparent shadow-sm"}`}>
                 <div className="flex items-center justify-between" onClick={() => toggleStaff(staff.id)}>
                    <div className="flex items-center gap-4 cursor-pointer">
@@ -299,9 +329,7 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData 
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">개별 포지션 부여</p>
                         <div className="flex flex-wrap gap-2">
                         {positions.map(pos => (
-                            <button
-                            key={pos}
-                            onClick={() => toggleStaffPosition(id, pos)}
+                            <button key={pos} onClick={() => toggleStaffPosition(id, pos)}
                             className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${
                                 (staffPositions[id] || []).includes(pos)
                                 ? "bg-blue-600 text-white shadow-md scale-105" // 선택됨

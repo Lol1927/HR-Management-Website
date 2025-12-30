@@ -1,18 +1,19 @@
 {
   "sidebar": {
     "logo": "HR MANAGE",
-    "staff_management": "직원 관리",
-    "events": "이벤트 관리"
+    "staff_management": "인력 관리",
+    "events": "이벤트 관리",
+    "evaluation":"인력 평가"
   },
   "staff_management": {
-    "header_title": "직원 현황",
-    "header_subtitle": "전체 직원 목록을 관리하고 수정할 수 있습니다.",
+    "header_title": "인력 현황",
+    "header_subtitle": "전체 인력 목록을 관리하고 수정할 수 있습니다.",
     "btn_register": "신규 등록",
-    "table_th_info": "직원 정보",
+    "table_th_info": "인력 정보",
     "table_th_status": "상태",
     "table_th_region": "근무 가능 지역",
     "table_th_manage": "관리",
-    "empty_message": "등록된 직원이 없습니다."
+    "empty_message": "등록된 인력이 없습니다."
   },
   "modal": {
     "title_add": "신규 등록",

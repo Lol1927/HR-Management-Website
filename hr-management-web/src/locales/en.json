@@ -2,7 +2,8 @@
   "sidebar": {
     "logo": "HR MANAGE",
     "staff_management": "Staff Management",
-    "events": "Events"
+    "events": "Events",
+    "evaluation":"Evaluation"
   },
   "staff_management": {
     "header_title": "Employees Status",

@@ -4,8 +4,9 @@ import axios from 'axios';
 import StaffManagement from './components/StaffManagement';
 import EventManager from './components/EventManager';
 import BulkEmployeeUpload from './components/BulkEmployeeUpload';
+import StaffEvaluation from './components/StaffEvaluation';
 // 아이콘 라이브러리
-import { LayoutDashboard, Calendar, Plus, X, MapPin, ChevronDown,Languages,Users,FileUp } from 'lucide-react';
+import { Calendar, X, MapPin, ChevronDown,Languages,Users,Star } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
@@ -26,7 +27,7 @@ function App() {
     name: '', contact: '', bankName: '', accountNumber: '', residentNumber: '', 
     status: '활성', availableWork: [] 
   });
-  const [workplaces, setWorkplaces] = useState([]);
+  
 
   const toggleLanguage = () => {
     // i18n.js에서 직접 가져온 인스턴스의 기능을 사용합니다.
@@ -145,7 +146,7 @@ function App() {
         <nav className="space-y-2">
           <button 
             onClick={() => setActiveMenu('staff')}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'staff' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-slate-800'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'staff' ? 'bg-green-600 text-white shadow-lg shadow-green-900/50' : 'text-slate-400 hover:bg-slate-800'}`}
           >
             <Users size={20} /> {t('sidebar.staff_management')}
           </button>
@@ -155,13 +156,20 @@ function App() {
           >
             <Calendar size={20} /> {t('sidebar.events')}
           </button>
+
+          <button 
+            onClick={() => setActiveMenu('evaluation')}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'evaluation' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/50' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Star size={20} className={activeMenu === 'evaluation' ? "fill-white" : ""} /> 
+            {t('sidebar.evaluation') || '인력 평가'}
+          </button>
         </nav>
       </aside>
 
       {/* 2. 메인 콘텐츠 (Main View Area) */}
       <main className="flex-1 p-10 overflow-y-auto">
         {/* 현재 메뉴 상태에 따라 다른 컴포넌트를 보여줌 */}
-        {activeMenu === 'staff' ? (
+        {activeMenu === 'staff' && (
           <StaffManagement 
             employees={employees} 
             workplaces={workplaceOptions}
@@ -171,8 +179,16 @@ function App() {
             setSelectedEmployee={setSelectedEmployee}
             setIsBulkModalOpen={setIsBulkModalOpen}
           />
-        ) : (
+        )}
+
+        {/* 2. 행사 일정 메뉴일 때 */}
+        {activeMenu === 'events' && (
           <EventManager />
+        )}
+
+        {/* 3. 인력 평가 메뉴일 때 (추가됨) */}
+        {activeMenu === 'evaluation' && (
+          <StaffEvaluation />
         )}
       </main>
 

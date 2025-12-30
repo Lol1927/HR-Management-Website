@@ -20,21 +20,45 @@ function EventManager() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedEventForView, setSelectedEventForView] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [workplaceOptions, setWorkplaceOptions] = useState([]);
+
+  const fetchWorkplaces = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/workplace`);
+      // 이름만 추출하여 배열로 저장
+      const names = res.data.map(item => item.placeName);
+      setWorkplaceOptions(names);
+    } catch (err) {
+      console.error("근무지 로드 실패:", err);
+    }
+  };
 
   // 1. 이벤트 데이터 로드
   const fetchEvents = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/events`);
-      const mappedEvents = response.data.map(ev => ({
-        id: ev.id,
-        title: ev.title,
-        start: ev.startDate,
-        // FullCalendar의 end 날짜는 Exclusive(포함 안됨)이므로 하루를 더해줌
-        end: new Date(new Date(ev.endDate).getTime() + 86400000).toISOString().split('T')[0],
-        backgroundColor: '#3b82f6',
-        borderColor: '#3b82f6',
-        extendedProps: { ...ev }
-      }));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // 비교를 위해 시간 초기화
+
+      const mappedEvents = response.data.map(ev => {
+        const eventEndDate = new Date(ev.endDate);
+        eventEndDate.setHours(0, 0, 0, 0);
+
+        // 오늘 날짜보다 이벤트 종료일이 이전이면 회색, 아니면 파란색
+        const isPast = eventEndDate < today;
+        const eventColor = isPast ? '#94a3b8' : '#3b82f6'; // 회색(slate-400) : 파란색(blue-500)
+
+        return {
+          id: ev.id,
+          title: ev.title,
+          start: ev.startDate,
+          // FullCalendar의 end는 Exclusive이므로 화면 표시를 위해 +1일
+          end: new Date(new Date(ev.endDate).getTime() + 86400000).toISOString().split('T')[0],
+          backgroundColor: eventColor,
+          borderColor: eventColor,
+          extendedProps: { ...ev, isPast } // 나중에 리스트에서도 사용하기 위해 추가
+        };
+      });
       setEvents(mappedEvents);
     } catch (err) {
       console.error("이벤트 로드 실패:", err);
@@ -43,6 +67,7 @@ function EventManager() {
 
   useEffect(() => {
     fetchEvents();
+    fetchWorkplaces();
   }, []);
 
   // 2. 수정 모드로 전환하는 핸들러
@@ -111,7 +136,14 @@ function EventManager() {
             <CalendarCheck className="text-blue-400" size={28} /> {t('events.confirmed_schedule')}
           </h3>
           <div className="space-y-5">
-            {events.map((ev, i) => (
+            {events.filter(ev => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const eventEndDate = new Date(ev.extendedProps.endDate);
+            eventEndDate.setHours(0, 0, 0, 0);
+            
+            return eventEndDate >= today;
+            }).map((ev, i) => (
               <div 
                 key={i} 
                 onClick={() => setSelectedEventForView(ev.extendedProps)} 
@@ -130,6 +162,7 @@ function EventManager() {
         <EventAddFullModal 
           selectionInfo={selectionInfo} 
           initialData={editingEvent}
+          workplaces={workplaceOptions}
           onClose={() => {
             setIsAddModalOpen(false);
             setEditingEvent(null);

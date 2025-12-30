@@ -3,8 +3,9 @@ import axios from 'axios';
 // 분리한 컴포넌트들을 불러옵니다.
 import StaffManagement from './components/StaffManagement';
 import EventManager from './components/EventManager';
+import BulkEmployeeUpload from './components/BulkEmployeeUpload';
 // 아이콘 라이브러리
-import { LayoutDashboard, Calendar, Plus, X, MapPin, ChevronDown,Languages,Users } from 'lucide-react';
+import { LayoutDashboard, Calendar, Plus, X, MapPin, ChevronDown,Languages,Users,FileUp } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
@@ -18,7 +19,8 @@ function App() {
   const [editingId, setEditingId] = useState(null); // 수정 중인 직원의 ID
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const { t } = useTranslation();
-  
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [workplaceOptions, setWorkplaceOptions] = useState([]);
   // 신규/수정용 직원 데이터 양식
   const [newEmployee, setNewEmployee] = useState({
     name: '', contact: '', bankName: '', accountNumber: '', residentNumber: '', 
@@ -35,7 +37,8 @@ function App() {
   
   // --- 옵션 데이터 ---
   const bankOptions = ["국민은행", "신한은행", "우리은행", "하나은행", "기업은행", "농협은행", "카카오뱅크", "토스뱅크", "새마을금고", "신용협동조합", "우체국"];
-  const regionOptions = ["서울", "경기", "인천", "부산", "대구", "울산", "대전", "광주", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"];
+  
+  
 
   // --- API 호출 및 데이터 처리 ---
   const fetchEmployees = async () => {
@@ -45,8 +48,18 @@ function App() {
     } catch (err) { console.error("로딩 실패", err); }
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { fetchEmployees(); fetchWorkplaces();}, []);
 
+  const fetchWorkplaces = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/workplace`);
+      // DB에서 가져온 데이터(객체 배열)에서 placeName만 추출하여 설정
+      const places = res.data.map(item => item.placeName);
+      setWorkplaceOptions(res.data.map(item => item.placeName) || []);
+    } catch (err) {
+      console.error("근무지 목록 로드 실패", err);
+    }
+  };
   // 연락처/주민번호 포맷팅 함수 (모달 내부용)
   const formatPhoneNumber = (value) => {
     const num = value.replace(/[^\d]/g, "");
@@ -154,6 +167,7 @@ function App() {
             openEditModal={openEditModal} 
             handleDelete={handleDelete}
             setSelectedEmployee={setSelectedEmployee}
+            setIsBulkModalOpen={setIsBulkModalOpen}
           />
         ) : (
           <EventManager />
@@ -166,6 +180,8 @@ function App() {
           <div className="bg-white rounded-[40px] p-10 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-2xl font-black text-slate-800">{editingId ? "정보 수정" : "신규 등록"}</h3>
+                
+
               <button onClick={closeModal} className="p-2 bg-slate-100 rounded-full text-slate-400"><X size={20} /></button>
             </div>
             
@@ -206,7 +222,7 @@ function App() {
               <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
                 <p className="text-[11px] font-black text-slate-400 uppercase mb-4 flex items-center gap-2"><MapPin size={14} /> {t('modal.label_region')}</p>
                 <div className="grid grid-cols-4 gap-2">
-                  {regionOptions.map(r => (
+                  {workplaceOptions.map(r => (
                     <button key={r} type="button" onClick={() => handleRegionChange(r)} className={`py-3 rounded-xl text-xs font-black border-2 transition-all ${(newEmployee.availableWork || []).includes(r) ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-400'}`}>{r}</button>
                   ))}
                 </div>
@@ -281,6 +297,16 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 일괄 등록 모달 조건부 렌더링 */}
+      {isBulkModalOpen && (
+        <BulkEmployeeUpload 
+          employees={employees}
+          onClose={() => setIsBulkModalOpen(false)} 
+          onRefresh={fetchEmployees}
+          API_URL={API_URL}
+        />
       )}
     </div>
   );

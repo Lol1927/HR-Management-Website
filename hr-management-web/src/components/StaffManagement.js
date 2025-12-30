@@ -2,7 +2,7 @@ import React from 'react';
 import { Plus, Edit3, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee }) {
+function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee,setIsBulkModalOpen }) {
   const { t } = useTranslation();
   
   return (
@@ -12,12 +12,21 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
           <h2 className="text-3xl font-black tracking-tight text-slate-800">{t('staff_management.header_title')}</h2>
           <p className="text-slate-400 font-medium mt-1">{t('staff_management.header_subtitle')}</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)} 
-          className="bg-blue-600 text-white px-6 py-3.5 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
-        >
-          <Plus size={18} /> {t('staff_management.btn_register')}
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsBulkModalOpen(true)} 
+            className="bg-slate-800 text-white px-6 py-3.5 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-slate-200 hover:bg-slate-700 transition-all active:scale-95"
+          >
+            <Plus size={18} /> 일괄 등록
+          </button>
+
+          <button 
+            onClick={() => setIsModalOpen(true)} 
+            className="bg-blue-600 text-white px-6 py-3.5 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
+          >
+            <Plus size={18} /> {t('staff_management.btn_register')}
+          </button>
+        </div>
       </header>
 
       <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">

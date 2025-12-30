@@ -25,15 +25,31 @@ export const handler = async (event) => {
     // 2. 등록 (POST)
     if (method === "POST") {
       const body = JSON.parse(event.body);
-      await docClient.send(new PutCommand({
-        TableName,
-        Item: {
-          placeName: body.placeName,
-          createdAt: new Date().toISOString()
-        },
-        ConditionExpression: "attribute_not_exists(placeName)" // 중복 방지
-      }));
-      return { statusCode: 201, headers, body: JSON.stringify({ message: "등록 성공" }) };
+      
+      try {
+        await docClient.send(new PutCommand({
+          TableName,
+          Item: {
+            placeName: body.placeName,
+            createdAt: new Date().toISOString()
+          },
+          // 이미 존재하면 저장하지 않음 (에러를 발생시킴)
+          ConditionExpression: "attribute_not_exists(placeName)"
+        }));
+        
+        return { statusCode: 201, headers, body: JSON.stringify({ message: "등록 성공" }) };
+      } catch (err) {
+        // 이미 존재하는 경우(ConditionalCheckFailed) 에러가 아니라 200 OK를 반환
+        if (err.name === "ConditionalCheckFailedException") {
+          return { 
+            statusCode: 200, // 에러 대신 성공 코드를 보냄
+            headers, 
+            body: JSON.stringify({ message: "이미 존재하는 근무지입니다. (무시됨)" }) 
+          };
+        }
+        // 그 외 진짜 에러는 500 반환
+        throw err;
+      }
     }
 
     // 3. 삭제 (DELETE)

@@ -26,6 +26,7 @@ function App() {
     name: '', contact: '', bankName: '', accountNumber: '', residentNumber: '', 
     status: '활성', availableWork: [] 
   });
+  const [workplaces, setWorkplaces] = useState([]);
 
   const toggleLanguage = () => {
     // i18n.js에서 직접 가져온 인스턴스의 기능을 사용합니다.
@@ -51,15 +52,15 @@ function App() {
   useEffect(() => { fetchEmployees(); fetchWorkplaces();}, []);
 
   const fetchWorkplaces = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/workplace`);
-      // DB에서 가져온 데이터(객체 배열)에서 placeName만 추출하여 설정
-      const places = res.data.map(item => item.placeName);
-      setWorkplaceOptions(res.data.map(item => item.placeName) || []);
-    } catch (err) {
-      console.error("근무지 목록 로드 실패", err);
-    }
-  };
+  try {
+    const res = await axios.get(`${API_URL}/workplace`);
+    // 🔥 데이터에서 placeName만 뽑아서 '텍스트 배열'로 저장합니다.
+    const namesOnly = res.data.map(item => item.placeName);
+    setWorkplaceOptions(namesOnly || []); 
+  } catch (err) {
+    console.error("근무지 목록 로드 실패", err);
+  }
+};
   // 연락처/주민번호 포맷팅 함수 (모달 내부용)
   const formatPhoneNumber = (value) => {
     const num = value.replace(/[^\d]/g, "");
@@ -163,6 +164,7 @@ function App() {
         {activeMenu === 'staff' ? (
           <StaffManagement 
             employees={employees} 
+            workplaces={workplaceOptions}
             setIsModalOpen={setIsModalOpen} 
             openEditModal={openEditModal} 
             handleDelete={handleDelete}

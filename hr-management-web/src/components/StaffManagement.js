@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Edit3, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee,setIsBulkModalOpen }) {
+function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee,setIsBulkModalOpen,workplaces, }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("모든 지역");
   const { t } = useTranslation();
+
+  const filteredList = employees.filter(emp => {
+    // 1. 이름이나 연락처에 검색어가 포함되어 있는지 확인
+    const matchesSearch = 
+      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      emp.contact.includes(searchTerm);
+    
+    // 2. 선택된 지역이 '모든 지역'이거나, 직원의 근무 가능 지역에 포함되는지 확인
+    const matchesRegion = 
+      selectedRegion === "모든 지역" || 
+      emp.availableWork?.includes(selectedRegion);
+
+    // 두 조건이 모두 참일 때만 결과에 포함
+    return matchesSearch && matchesRegion;
+  });
   
   return (
     <div className="animate-in fade-in duration-500">
@@ -29,6 +46,42 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
         </div>
       </header>
 
+      {/* 🔥 여기에 넣으세요! (2. 필터 바 영역) */}
+      <div className="flex gap-4 mb-6">
+        <div className="relative flex-1 max-w-sm">
+          <input 
+            type="text" 
+            placeholder="이름 또는 연락처 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-5 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+          />
+        </div>
+
+        <select 
+          value={selectedRegion}
+          onChange={(e) => setSelectedRegion(e.target.value)}
+          className="px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-600 focus:outline-none shadow-sm cursor-pointer"
+        >
+          <option value="모든 지역">모든 지역</option>
+          
+          {/* workplaces 배열이 존재할 때만 실행 */}
+          {workplaces && workplaces.map((wp, index) => {
+            // wp가 객체면 wp.placeName을 쓰고, 그냥 텍스트면 wp 자체를 씀
+            const value = typeof wp === 'object' ? wp.placeName : wp;
+            
+            // 데이터가 유효할 때만 option 태그 생성
+            if (!value) return null;
+
+            return (
+              <option key={index} value={value}>
+                {value}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+
       <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
         <table className="w-full text-left table-fixed">
           {/* 테이블 헤더 */}
@@ -43,14 +96,16 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
 
           {/* 테이블 바디 (실제 데이터가 그려지는 곳) */}
           <tbody className="divide-y divide-slate-50">
-            {employees.length === 0 ? (
+            {filteredList.length === 0 ? (
               <tr>
                 <td colSpan="4" className="p-20 text-center text-slate-400 font-bold">
-                  {t('staff_management.empty_message')}
+                  {searchTerm || selectedRegion !== "모든 지역" 
+                    ? "검색 결과가 없습니다." 
+                    : t('staff_management.empty_message')}
                 </td>
               </tr>
             ) : (
-              employees.map((emp) => (
+              filteredList.map((emp) => (
                 <tr key={emp.id} className="hover:bg-slate-50/30 transition-colors group">
                   <td className="p-6">
                     <div className="flex items-center gap-4">

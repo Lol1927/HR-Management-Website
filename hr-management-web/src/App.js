@@ -5,8 +5,9 @@ import StaffManagement from './components/StaffManagement';
 import EventManager from './components/EventManager';
 import BulkEmployeeUpload from './components/BulkEmployeeUpload';
 import StaffEvaluation from './components/StaffEvaluation';
+import CategoryManager from './components/CategoryManager';
 // 아이콘 라이브러리
-import { Calendar, X, MapPin, ChevronDown,Languages,Users,Star } from 'lucide-react';
+import { Calendar, X, MapPin, ChevronDown,Languages,Users,Star,Settings } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
@@ -21,13 +22,33 @@ function App() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const { t } = useTranslation();
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [workplaceOptions, setWorkplaceOptions] = useState([]);
+  const [provinces, setProvinces] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [activeProvince, setActiveProvince] = useState(null);
+  
   // 신규/수정용 직원 데이터 양식
   const [newEmployee, setNewEmployee] = useState({
     name: '', contact: '', bankName: '', accountNumber: '', residentNumber: '', 
     status: '활성', availableWork: [] 
   });
+
   
+
+  const fetchRegions = async () => {
+    try {
+      // 주(Province) 목록 가져오기
+      const pRes = await axios.get(`${API_URL}/province`);
+      // 백엔드 필드명이 provinceName이므로 이를 추출합니다.
+      setProvinces(pRes.data || []);
+
+      // 시(City) 목록 가져오기
+      const cRes = await axios.get(`${API_URL}/city`);
+      setCities(cRes.data || []);
+    } catch (err) {
+      console.error("지역 정보 로드 실패", err);
+    }
+  };
+    
 
   const toggleLanguage = () => {
     // i18n.js에서 직접 가져온 인스턴스의 기능을 사용합니다.
@@ -50,18 +71,8 @@ function App() {
     } catch (err) { console.error("로딩 실패", err); }
   };
 
-  useEffect(() => { fetchEmployees(); fetchWorkplaces();}, []);
+  useEffect(() => { fetchEmployees(); fetchRegions();}, []);
 
-  const fetchWorkplaces = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/workplace`);
-    // 🔥 데이터에서 placeName만 뽑아서 '텍스트 배열'로 저장합니다.
-    const namesOnly = res.data.map(item => item.placeName);
-    setWorkplaceOptions(namesOnly || []); 
-  } catch (err) {
-    console.error("근무지 목록 로드 실패", err);
-  }
-};
   // 연락처/주민번호 포맷팅 함수 (모달 내부용)
   const formatPhoneNumber = (value) => {
     const num = value.replace(/[^\d]/g, "");
@@ -141,6 +152,8 @@ function App() {
               {i18n.language === 'ko' ? 'A' : '가'}
             </span>
           </button>
+
+
         </div>
 
         <nav className="space-y-2">
@@ -163,6 +176,12 @@ function App() {
             <Star size={20} className={activeMenu === 'evaluation' ? "fill-white" : ""} /> 
             {t('sidebar.evaluation') || '인력 평가'}
           </button>
+
+          <button 
+            onClick={() => setActiveMenu('category')}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'category' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Settings size={20} /> 카테고리 관리
+          </button>
         </nav>
       </aside>
 
@@ -172,7 +191,8 @@ function App() {
         {activeMenu === 'staff' && (
           <StaffManagement 
             employees={employees} 
-            workplaces={workplaceOptions}
+            provinces={provinces}  // 추가
+            cities={cities}
             setIsModalOpen={setIsModalOpen} 
             openEditModal={openEditModal} 
             handleDelete={handleDelete}
@@ -190,20 +210,28 @@ function App() {
         {activeMenu === 'evaluation' && (
           <StaffEvaluation />
         )}
+        {activeMenu === 'category' && (
+          <CategoryManager />
+        )}
       </main>
 
       {/* 3. 공통 등록/수정 모달 (필요시 컴포넌트 분리 가능) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-50">
-          <div className="bg-white rounded-[40px] p-10 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-2xl font-black text-slate-800">{editingId ? "정보 수정" : "신규 등록"}</h3>
-                
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-50">
+        {/* 모달 너비를 max-w-5xl로 키워서 옆으로 넓게 만듭니다 */}
+        <div className="bg-white rounded-[40px] p-10 w-full max-w-5xl shadow-2xl overflow-y-auto max-h-[90vh]">
+          
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-2xl font-black text-slate-800">{editingId ? "정보 수정" : "신규 등록"}</h3>
+            <button onClick={closeModal} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:bg-slate-200 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
 
-              <button onClick={closeModal} className="p-2 bg-slate-100 rounded-full text-slate-400"><X size={20} /></button>
-            </div>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {/* [왼쪽 영역] 인적 사항 입력 */}
+            <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_name')}</label>
@@ -215,7 +243,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_contact')}</label>
                   <input required className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold" placeholder="010-0000-0000" value={newEmployee.contact} onChange={e => setNewEmployee({...newEmployee, contact: formatPhoneNumber(e.target.value)})} maxLength={13} />
@@ -223,52 +251,97 @@ function App() {
                 <div className="space-y-1">
                   <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_bank')}</label>
                   <div className="flex gap-2">
-                    <div className="w-[45%] relative">
+                    <div className="w-[40%] relative">
                       <select required className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold appearance-none pr-8 text-sm" value={newEmployee.bankName} onChange={e => setNewEmployee({...newEmployee, bankName: e.target.value})}>
                         <option value="">{t('modal.placeholder_bank_select')}</option>
                         {bankOptions.map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
                       <ChevronDown size={16} className="absolute right-3 top-5 text-slate-400 pointer-events-none" />
                     </div>
-                    <input className="w-[55%] p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold text-sm" placeholder="계좌번호" value={newEmployee.accountNumber} onChange={e => setNewEmployee({...newEmployee, accountNumber: e.target.value})} />
+                    <input className="w-[60%] p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold text-sm" placeholder="계좌번호" value={newEmployee.accountNumber} onChange={e => setNewEmployee({...newEmployee, accountNumber: e.target.value})} />
                   </div>
                 </div>
               </div>
 
-              
-
-              <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
-                <p className="text-[11px] font-black text-slate-400 uppercase mb-4 flex items-center gap-2"><MapPin size={14} /> {t('modal.label_region')}</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {workplaceOptions.map(r => (
-                    <button key={r} type="button" onClick={() => handleRegionChange(r)} className={`py-3 rounded-xl text-xs font-black border-2 transition-all ${(newEmployee.availableWork || []).includes(r) ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-400'}`}>{r}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_status')}</label>
-                <div className="relative">
-                  <select 
-                    required 
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold appearance-none pr-8 text-sm" 
-                    value={newEmployee.status} 
-                    onChange={e => setNewEmployee({...newEmployee, status: e.target.value})}
-                  >
-                    <option value="활성">{t('common.status_active')}</option>
-                    <option value="비활성">{t('common.status_inactive')}</option>
-                  </select>
-                  <ChevronDown size={16} className="absolute right-4 top-5 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-
-              <button type="submit" className={`w-full p-5 rounded-2xl font-black text-lg shadow-xl transition-all ${editingId ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
-                {editingId ? "정보 수정 완료" : "저장하기"}
+              <button type="submit" className="w-full py-5 bg-blue-600 text-white rounded-[24px] text-lg font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all mt-4">
+                {editingId ? "수정 완료" : "저장하기"}
               </button>
-            </form>
-          </div>
+            </div>
+
+            {/* [오른쪽 영역 - 파란색 원 위치] 근무 지역 선택 */}
+            <div className="p-8 bg-slate-50 rounded-[40px] border border-slate-100 flex flex-col h-full min-h-[450px]">
+              <p className="text-[11px] font-black text-slate-400 uppercase mb-4 flex items-center gap-2">
+                <MapPin size={14} /> {t('modal.label_region')} (최대 5개)
+              </p>
+
+              <div className="flex gap-4 flex-1 min-h-0">
+                {/* 도 선택 */}
+                <div className="w-1/3 bg-white rounded-3xl p-3 overflow-y-auto border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-300 mb-3 text-center uppercase">근무지역 도</p>
+                  <div className="space-y-1">
+                    {provinces.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveProvince(p.provinceName)}
+                        className={`w-full text-left px-4 py-3 rounded-2xl text-xs font-black transition-all ${
+                          activeProvince === p.provinceName ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-50 text-slate-500'
+                        }`}
+                      >
+                        {p.provinceName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 시 선택 */}
+                <div className="flex-1 bg-white rounded-3xl p-3 overflow-y-auto border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-300 mb-3 text-center uppercase">근무지역 시</p>
+                  {!activeProvince ? (
+                    <div className="h-full flex items-center justify-center text-[11px] text-slate-300 font-bold text-center px-4 italic">
+                      왼쪽에서 '도'를 먼저 선택하세요
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {cities.filter(c => c.provinceName === activeProvince).map((c, idx) => {
+                        const fullRegionName = `${c.provinceName} ${c.cityName}`;
+                        const isSelected = (newEmployee.availableWork || []).includes(fullRegionName);
+                        return (
+                          
+
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleRegionChange(fullRegionName)}
+                            className={`py-3 px-2 rounded-2xl text-[11px] font-black border-2 transition-all ${
+                              isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-md' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'
+                            }`}
+                          >
+                            {c.cityName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 선택된 지역 태그 */}
+              <div className="mt-4 flex flex-wrap gap-2 p-2 bg-white/50 rounded-2xl border border-dashed border-slate-200 min-h-[50px]">
+                {(newEmployee.availableWork || []).length === 0 && <span className="text-[10px] text-slate-300 m-auto">선택된 지역이 없습니다.</span>}
+                {(newEmployee.availableWork || []).map(region => (
+                  <span key={region} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black flex items-center gap-1 border border-blue-100">
+                    {region}
+                    <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => handleRegionChange(region)} />
+                  </span>
+                ))}
+              </div>
+            </div>
+
+          </form>
         </div>
-      )}
+      </div>
+    )}
       {selectedEmployee && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[60]">
           <div className="bg-white rounded-[40px] p-10 w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">

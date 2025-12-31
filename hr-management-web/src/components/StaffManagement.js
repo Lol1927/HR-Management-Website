@@ -1,25 +1,51 @@
-import React, { useState } from 'react';
-import { Plus, Edit3, Trash2 } from 'lucide-react';
+import React, { useState,useMemo } from 'react';
+import { Plus, Edit3, Trash2,ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee,setIsBulkModalOpen,workplaces, }) {
+function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee,setIsBulkModalOpen,provinces = [],cities = [] }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("모든 지역");
+  const [isProvinceOpen, setIsProvinceOpen] = useState(false);
+  const [selectedProvince, setSelectedProvince] = useState("모든 주");
+  const [selectedCity, setSelectedCity] = useState("전체 보기"); 
+  const [isCityOpen, setIsCityOpen] = useState(false);
   const { t } = useTranslation();
 
+  const handleProvinceClick = (provinceName) => {
+    setSelectedProvince(provinceName);
+    setIsProvinceOpen(false); // 선택 후 목록 닫기
+  };
+
+    const availableCities = useMemo(() => {
+      if (selectedProvince === "모든 주") return [];
+      return cities.filter(city => city.provinceName === selectedProvince);
+    }, [selectedProvince, cities]);
+
+
   const filteredList = employees.filter(emp => {
-    // 1. 이름이나 연락처에 검색어가 포함되어 있는지 확인
+    // 1. 검색어 필터 (이름, 연락처)
     const matchesSearch = 
       emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       emp.contact.includes(searchTerm);
-    
-    // 2. 선택된 지역이 '모든 지역'이거나, 직원의 근무 가능 지역에 포함되는지 확인
-    const matchesRegion = 
-      selectedRegion === "모든 지역" || 
-      emp.availableWork?.includes(selectedRegion);
 
-    // 두 조건이 모두 참일 때만 결과에 포함
-    return matchesSearch && matchesRegion;
+    // 2. 도(Province) 필터링
+    const isAllProvince = selectedProvince === "모든 주" || !selectedProvince;
+    const matchesProvince = isAllProvince || 
+      emp.availableWork?.some(loc => {
+        // 데이터가 "서울특별시 강남구" 형태일 때 "서울특별시"가 포함되어 있는지 확인
+        const locString = typeof loc === 'object' ? `${loc.province} ${loc.city}` : String(loc);
+        return locString.includes(selectedProvince); 
+      });
+
+    // 3. 시(City) 필터링
+    const isAllCity = !selectedCity || selectedCity === "전체 보기";
+    const matchesCity = isAllCity || 
+      emp.availableWork?.some(loc => {
+        const locString = typeof loc === 'object' ? loc.city : String(loc);
+        // 선택된 시(예: 강남구)가 데이터에 포함되어 있는지 확인
+        return locString.includes(selectedCity);
+      });
+
+    return matchesSearch && matchesProvince && matchesCity;
   });
   
   return (
@@ -46,9 +72,12 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
         </div>
       </header>
 
-      {/* 🔥 여기에 넣으세요! (2. 필터 바 영역) */}
-      <div className="flex gap-4 mb-6">
-        <div className="relative flex-1 max-w-sm">
+      
+      {/* 검색창과 지역 선택 리스트를 감싸는 컨테이너 */}
+      <div className="space-y-4 mb-8">
+        
+        {/* 1. 검색창 (기존 유지) */}
+        <div className="relative max-w-sm">
           <input 
             type="text" 
             placeholder="이름 또는 연락처 검색..."
@@ -58,28 +87,84 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
           />
         </div>
 
-        <select 
-          value={selectedRegion}
-          onChange={(e) => setSelectedRegion(e.target.value)}
-          className="px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-600 focus:outline-none shadow-sm cursor-pointer"
-        >
-          <option value="모든 지역">모든 지역</option>
+       {/* 계층형 지역 선택 영역 */}
+        <div className="flex gap-4 items-start"> 
           
-          {/* workplaces 배열이 존재할 때만 실행 */}
-          {workplaces && workplaces.map((wp, index) => {
-            // wp가 객체면 wp.placeName을 쓰고, 그냥 텍스트면 wp 자체를 씀
-            const value = typeof wp === 'object' ? wp.placeName : wp;
-            
-            // 데이터가 유효할 때만 option 태그 생성
-            if (!value) return null;
+          {/* [왼쪽] 주(Province) 드롭다운 */}
+          <div className="w-64 relative">
+            <p className="text-[11px] font-black text-slate-400 ml-2 mb-2 uppercase">지역 선택</p>
+            <button 
+              onClick={() => {
+                setIsProvinceOpen(!isProvinceOpen);
+                setIsCityOpen(false); // 다른 드롭다운 닫기
+              }}
+              className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black flex justify-between items-center shadow-lg"
+            >
+              {selectedProvince}
+              <ChevronDown size={20} className={`transition-transform duration-300 ${isProvinceOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-            return (
-              <option key={index} value={value}>
-                {value}
-              </option>
-            );
-          })}
-        </select>
+            {isProvinceOpen && (
+              <div className="absolute top-full left-0 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-30 overflow-hidden">
+                <button
+                  onClick={() => { setSelectedProvince("모든 주"); setSelectedCity("전체 보기"); setIsProvinceOpen(false); }}
+                  className="w-full text-left px-5 py-3.5 text-sm font-bold hover:bg-slate-50 border-b border-slate-50 text-slate-600"
+                >
+                  모든 주
+                </button>
+                {provinces.map((p, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => { setSelectedProvince(p.provinceName); setSelectedCity("전체 보기"); setIsProvinceOpen(false); }}
+                    className="w-full text-left px-5 py-3.5 text-sm font-bold hover:bg-slate-50 border-b border-slate-50 last:border-none text-slate-600"
+                  >
+                    {p.provinceName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* [오른쪽] 시(City) 드롭다운 - 특정 주를 골랐을 때만 렌더링 */}
+          {selectedProvince !== "모든 주" && (
+            <div className="w-64 relative animate-in fade-in slide-in-from-left-2">
+              <p className="text-[11px] font-black text-slate-400 ml-2 mb-2 uppercase">{selectedProvince} 세부 시</p>
+              <button 
+                onClick={() => {
+                  setIsCityOpen(!isCityOpen);
+                  setIsProvinceOpen(false); // 다른 드롭다운 닫기
+                }}
+                className="w-full bg-emerald-500 text-white p-4 rounded-2xl font-black flex justify-between items-center shadow-lg"
+              >
+                {selectedCity}
+                <ChevronDown size={20} className={`transition-transform duration-300 ${isCityOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isCityOpen && (
+                <div className="absolute top-full left-0 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-30 overflow-hidden">
+                  <button
+                    onClick={() => { setSelectedCity("전체 보기"); setIsCityOpen(false); }}
+                    className="w-full text-left px-5 py-3.5 text-sm font-bold hover:bg-slate-50 border-b border-slate-50 text-slate-600"
+                  >
+                    전체 보기
+                  </button>
+                  {cities
+                    .filter(c => c.provinceName === selectedProvince)
+                    .map((c, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => { setSelectedCity(c.cityName); setIsCityOpen(false); }}
+                        className="w-full text-left px-5 py-3.5 text-sm font-bold hover:bg-slate-50 border-b border-slate-50 last:border-none text-slate-600"
+                      >
+                        {c.cityName}
+                      </button>
+                    ))
+                  }
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
@@ -99,7 +184,7 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
             {filteredList.length === 0 ? (
               <tr>
                 <td colSpan="4" className="p-20 text-center text-slate-400 font-bold">
-                  {searchTerm || selectedRegion !== "모든 지역" 
+                  {(searchTerm || selectedProvince !== "모든 주") 
                     ? "검색 결과가 없습니다." 
                     : t('staff_management.empty_message')}
                 </td>

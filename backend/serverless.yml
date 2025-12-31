@@ -9,7 +9,8 @@ provider:
     EMPLOYEES_TABLE: ${self:service}-employees-${sls:stage}
     EVENTS_TABLE: Events
     POSITIONS_TABLE: PositionsTable  
-    WORKPLACE_TABLE: WorkplaceTable
+    PROVINCE_TABLE: ${self:service}-provinces-${sls:stage}
+    CITY_TABLE: ${self:service}-cities-${sls:stage}
 
   iam:
     role:
@@ -42,15 +43,23 @@ provider:
             - dynamodb:DeleteItem
           Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.POSITIONS_TABLE}"
 
+        # 4. 주(Province) 테이블 권한
         - Effect: Allow
           Action:
-            - dynamodb:Query
+            - dynamodb:PutItem
             - dynamodb:Scan
             - dynamodb:GetItem
-            - dynamodb:PutItem
-            - dynamodb:UpdateItem
             - dynamodb:DeleteItem
-          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.WORKPLACE_TABLE}"
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.PROVINCE_TABLE}"
+
+        # 5. 시(City) 테이블 권한
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:DeleteItem
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.CITY_TABLE}"
 
 functions:
   # --- 기존 직원 관리 함수 ---
@@ -123,20 +132,35 @@ functions:
           path: positions/{name}
           method: delete
           cors: true
-
-  workplaceHandler:
-    handler: functions/workplaceHandler.handler
+  manageCity:
+    handler: functions/cityHandler.handler # city.mjs 파일의 handler 함수
     events:
       - http:
-          path: workplace
+          path: city
           method: get
           cors: true
       - http:
-          path: workplace
+          path: city
           method: post
           cors: true
       - http:
-          path: workplace/{placeName}
+          path: city/{cityName}
+          method: delete
+          cors: true
+
+  manageProvince:
+    handler: functions/provinceHandler.handler # province.mjs 파일의 handler 함수
+    events:
+      - http:
+          path: province
+          method: get
+          cors: true
+      - http:
+          path: province
+          method: post
+          cors: true
+      - http:
+          path: province/{provinceName}
           method: delete
           cors: true
 
@@ -168,14 +192,28 @@ resources:
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
 
-    WorkplaceTable:
+    # 1. 주(Province) 테이블
+    ProvinceTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:provider.environment.WORKPLACE_TABLE}
+        TableName: ${self:service}-provinces-${sls:stage}
         AttributeDefinitions:
-          - AttributeName: placeName
+          - AttributeName: provinceName
             AttributeType: S
         KeySchema:
-          - AttributeName: placeName
-            KeyType: HASH
+          - AttributeName: provinceName
+            KeyType: HASH # 파티션 키
+        BillingMode: PAY_PER_REQUEST
+
+    # 2. 시(City) 테이블
+    CityTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-cities-${sls:stage}
+        AttributeDefinitions:
+          - AttributeName: cityName
+            AttributeType: S
+        KeySchema:
+          - AttributeName: cityName
+            KeyType: HASH # 파티션 키
         BillingMode: PAY_PER_REQUEST

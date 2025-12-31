@@ -12,92 +12,101 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
   });
 
   // 1. 엑셀 형식 다운로드 (사용자가 올린 양식 기준)
+  // 1. 엑셀 형식 다운로드 수정
   const downloadTemplate = () => {
     const ws = XLSX.utils.json_to_sheet([
-      { "이름": "", "연락처": "010-0000-0000", "은행": "", "계좌번호": "", "주민등록번호": "000000-0000000", "근무지역": "서울,경기" }
+      { 
+        "이름": "홍길동", 
+        "연락처": "010-1234-5678", 
+        "은행": "신한은행", 
+        "계좌번호": "110-123-456789", 
+        "주민등록번호": "900101-1234567", 
+        // 🔥 도움말처럼 샘플을 넣어줍니다.
+        "주": "경기도",
+        "시": "수원시" 
+      }
     ]);
+    
+    // 열 너비 조절 (사용자 편의성)
+    ws['!cols'] = [
+      { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 30 }
+    ];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "양식");
     XLSX.writeFile(wb, "직원_등록_양식.xlsx");
   };
 
- const handleFileUpload = (e) => {
-  const file = e.target.files[0];
-  const reader = new FileReader();
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
 
-  reader.onload = (evt) => {
-    const bstr = evt.target.result;
-    const wb = XLSX.read(bstr, { type: 'binary' });
-    const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+    reader.onload = (evt) => {
+      const bstr = evt.target.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 
-    if (!json || json.length === 0) {
-      alert("엑셀 파일에 데이터가 없거나 형식이 잘못되었습니다.");
-      e.target.value = "";
-      return;
-    }
+      if (!json || json.length === 0) {
+        alert("엑셀 파일에 데이터가 없거나 형식이 잘못되었습니다.");
+        e.target.value = "";
+        return;
+      }
 
-    const dbList = employees || [];
-    
-    // 🔥 [추가] 파일 안에서 이미 나타난 주민번호를 저장할 Set (파일 내 중복 체크용)
-    const seenInFile = new Set();
+      const dbList = employees || [];
+      const seenInFile = new Set();
 
-    // 중복 체크 및 포맷팅
-    const formatted = json.map((row, idx) => {
-      const excelResRaw = String(row["주민등록번호"] || "").trim();
-      const cleanExcelRes = excelResRaw.replace(/[^0-9]/g, "");
+      const formatted = json.map((row, idx) => {
+        const excelResRaw = String(row["주민등록번호"] || "").trim();
+        const cleanExcelRes = excelResRaw.replace(/[^0-9]/g, "");
 
-      let duplicateFound = false;
+        let duplicateFound = false;
+        const isDuplicateInDB = dbList.some((emp) => {
+          const dbResRaw = String(emp.residentNumber || "").trim();
+          const cleanDBRes = dbResRaw.replace(/[^0-9]/g, "");
+          return cleanExcelRes !== "" && cleanExcelRes === cleanDBRes;
+        });
+        const isDuplicateInFile = seenInFile.has(cleanExcelRes);
+        if (isDuplicateInDB || isDuplicateInFile) duplicateFound = true;
+        if (cleanExcelRes !== "") seenInFile.add(cleanExcelRes);
 
-      // 1. DB와의 중복 체크
-      const isDuplicateInDB = dbList.some((emp) => {
-        const dbResRaw = String(emp.residentNumber || "").trim();
-        const cleanDBRes = dbResRaw.replace(/[^0-9]/g, "");
-        return cleanExcelRes !== "" && cleanExcelRes === cleanDBRes;
+        // ✅ [핵심 수정] 객체가 아닌 "문자열"로 변환
+        const province = String(row["주"] || "").trim();
+        const city = String(row["시"] || "전체").trim(); // 시가 비어있으면 "전체"
+
+        // "경기도 수원시" 또는 "서울 전체" 형태의 문자열 생성
+        const locationString = province ? `${province} ${city}` : "";
+
+        return {
+          tempId: idx,
+          name: row["이름"] || "이름없음",
+          contact: String(row["연락처"] || "").trim(),
+          bankName: String(row["은행"] || "").trim(),
+          accountNumber: String(row["계좌번호"] || "").trim(),
+          residentNumber: excelResRaw,
+          // 🔹 백엔드 사양에 맞춰 문자열 배열로 저장
+          availableWork: locationString ? [locationString] : [], 
+          isDuplicate: duplicateFound
+        };
       });
 
-      // 2. 파일 내부에서의 중복 체크
-      const isDuplicateInFile = seenInFile.has(cleanExcelRes);
+      const filteredData = formatted.filter(item => !item.isDuplicate);
+      
+      setStats({
+        total: json.length,
+        duplicates: json.length - filteredData.length,
+        final: filteredData.length
+      });
 
-      if (isDuplicateInDB || isDuplicateInFile) {
-        duplicateFound = true;
+      if (filteredData.length === 0) {
+        alert("추가할 인력이 없습니다. (중복 데이터)");
+        setData([]);
+        e.target.value = "";
+      } else {
+        setData(filteredData);
       }
-
-      // 중복이 아니면 Set에 추가하여 다음 행에서 중복인지 확인할 수 있게 함
-      if (cleanExcelRes !== "") {
-        seenInFile.add(cleanExcelRes);
-      }
-
-      return {
-        tempId: idx,
-        name: row["이름"] || "이름없음",
-        contact: String(row["연락처"] || "").trim(),
-        bankName: String(row["은행"] || "").trim(),
-        accountNumber: String(row["계좌번호"] || "").trim(),
-        residentNumber: excelResRaw,
-        availableWork: row["근무지역"] ? String(row["근무지역"]).split(",").map(r => r.trim()) : [],
-        isDuplicate: duplicateFound
-      };
-    });
-
-    // 중복된 데이터는 리스트에서 제외
-    const filteredData = formatted.filter(item => !item.isDuplicate);
-
-    setStats({
-      total: json.length,
-      duplicates: json.length - filteredData.length,
-      final: filteredData.length
-    });
-
-    if (filteredData.length === 0) {
-      alert("추가할 인력이 없습니다.\n(이미 등록된 인원이거나 파일 내에 중복된 데이터만 있습니다.)");
-      setData([]);
-      e.target.value = "";
-    } else {
-      setData(filteredData);
-    }
+    };
+    reader.readAsBinaryString(file);
   };
-  reader.readAsBinaryString(file);
-};
 
   // 3. 임시 데이터 수정 로직
   const handleEdit = (index, field, value) => {
@@ -201,7 +210,7 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
                     <th className="px-6 py-4">연락처</th>
                     <th className="px-6 py-4">은행/계좌</th>
                     <th className="px-6 py-4">주민등록번호</th>
-                    <th className="px-6 py-4">근무지역</th>
+                    <th className="px-6 py-4">근무지역</th> {/* 도/시 결합 출력 */}
                     <th className="px-6 py-4 text-center">관리</th>
                   </tr>
                 </thead>
@@ -221,16 +230,24 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
                       <td className="px-6 py-4 font-mono text-slate-500 text-xs tracking-tighter">
                         {item.residentNumber}
                       </td>
+                      {/* 🔥 근무지역 출력 로직 수정 */}
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
                           {Array.isArray(item.availableWork) && item.availableWork.length > 0 ? (
                             item.availableWork.slice(0, 3).map((loc, i) => (
-                              <span key={i} className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                              <span key={i} className="bg-blue-50 text-blue-600 text-[11px] px-2 py-1 rounded-md font-bold border border-blue-100">
+                                {/* ✅ loc 자체가 문자열이므로 .province 같은 속성 없이 바로 출력합니다 */}
                                 {loc}
                               </span>
                             ))
-                          ) : <span className="text-slate-300 text-xs">-</span>}
-                          {item.availableWork?.length > 3 && <span className="text-[10px] text-slate-400 font-bold">+{item.availableWork.length - 3}</span>}
+                          ) : (
+                            <span className="text-slate-300 text-xs">-</span>
+                          )}
+                          {item.availableWork?.length > 3 && (
+                            <span className="text-[10px] text-slate-400 font-bold self-center ml-1">
+                              +{item.availableWork.length - 3}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center rounded-r-2xl">

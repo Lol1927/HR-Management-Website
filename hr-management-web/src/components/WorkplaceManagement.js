@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, MapPin, Trash2, Check, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
-function WorkplaceManagement({ API_URL }) {
+function WorkplaceManagement({ API_URL ,onRefresh}) {
   const [provinces, setProvinces] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -12,6 +12,8 @@ function WorkplaceManagement({ API_URL }) {
   const [isCityModalOpen, setIsCityModalOpen] = useState(false);
   const [newCityName, setNewCityName] = useState("");
   const [targetProvinceName, setTargetProvinceName] = useState("");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // 1. 데이터 불러오기 (GET)
   const fetchData = async () => {
@@ -48,33 +50,79 @@ function WorkplaceManagement({ API_URL }) {
   useEffect(() => { fetchData(); }, [API_URL]);
 
   // 2. 도(Province) 추가 (POST)
-  const addProvince = async () => {
-    if (!newProvinceName.trim()) return;
-    try {
-      const res = await axios.post(`${API_URL}/province`, { provinceName: newProvinceName });
-      if (res.data.error) {
-        alert(res.data.error);
-      } else {
-        await fetchData(); // 목록 갱신
-        setNewProvinceName("");
-        setIsAdding(false);
-      }
-    } catch (err) {
-      alert("도 등록 중 오류가 발생했습니다.");
-    }
-  };
+  // 2. 도(Province) 추가 (POST)
+const addProvince = async () => {
+  if (!newProvinceName.trim()) return;
+  
+  try {
+    // [Step 1] 도 등록
+    const res = await axios.post(`${API_URL}/province`, { 
+      provinceName: newProvinceName 
+    });
 
-  // 3. 도(Province) 삭제 (DELETE)
+    if (res.data.error) {
+      alert(res.data.error);
+      return;
+    }
+   await axios.post(`${API_URL}/city`, { 
+      // 핵심: cityName을 중복되지 않게 '도 이름 + 전체'로 조합
+      cityName: `${newProvinceName} 전체`, 
+      provinceName: newProvinceName 
+    });
+
+    // 모든 작업이 끝나면 목록 갱신 및 입력창 닫기
+    await fetchData(); 
+    if (onRefresh) await onRefresh()
+    setNewProvinceName("");
+    setIsAdding(false);
+    
+    console.log(`${newProvinceName} 및 기본 '전체' 지역 생성 완료`);
+
+  } catch (err) {
+    console.error("등록 중 오류:", err);
+    alert("도 등록 또는 기본 지역 생성 중 오류가 발생했습니다.");
+  }
+};
+
+ // 3. 도(Province) 삭제 (DELETE)
   const deleteProvince = async (name) => {
-    if (!window.confirm(`'${name}'를 삭제하시겠습니까? 관련 도시 데이터는 따로 삭제해야 합니다.`)) return;
-    try {
-      await axios.delete(`${API_URL}/province/${encodeURIComponent(name)}`);
-      await fetchData();
-    } catch (err) {
-      alert("삭제 실패");
-    }
-  };
+  const targetProvince = provinces.find(p => p.provinceName === name);
+  const citiesToDelete = targetProvince?.cities || [];
+  
+  // 바로 삭제하지 않고 모달 정보를 세팅한 뒤 모달을 엽니다.
+  setDeleteTarget({ name, count: citiesToDelete.length, cities: citiesToDelete });
+  setIsDeleteModalOpen(true);
+};
 
+// 실제 삭제를 수행할 별도의 함수
+const confirmDelete = async () => {
+  if (!deleteTarget) return;
+  
+  const { name, cities } = deleteTarget;
+  
+  try {
+    setLoading(true);
+    setIsDeleteModalOpen(false); // 모달 닫기
+
+    // [Step 1] 시 삭제
+    const deleteCityPromises = cities.map(city => 
+      axios.delete(`${API_URL}/city/${encodeURIComponent(city.cityName)}`)
+    );
+    await Promise.all(deleteCityPromises);
+
+    // [Step 2] 도 삭제
+    await axios.delete(`${API_URL}/province/${encodeURIComponent(name)}`);
+
+    await fetchData();
+    if (onRefresh) await onRefresh()
+    setDeleteTarget(null);
+  } catch (err) {
+    console.error("삭제 실패:", err);
+    alert("삭제 중 오류가 발생했습니다.");
+  } finally {
+    setLoading(false);
+  }
+};
   // 4. 시(City) 추가 (POST)
   const handleCitySubmit = async () => {
     if (!newCityName.trim()) return;
@@ -87,6 +135,7 @@ function WorkplaceManagement({ API_URL }) {
         alert(res.data.error);
       } else {
         await fetchData();
+        if (onRefresh) await onRefresh()
         setNewCityName("");
         setIsCityModalOpen(false);
       }
@@ -101,6 +150,7 @@ function WorkplaceManagement({ API_URL }) {
     try {
       await axios.delete(`${API_URL}/city/${encodeURIComponent(cityName)}`);
       await fetchData();
+      if (onRefresh) await onRefresh()
     } catch (err) {
       alert("시 삭제 실패");
     }
@@ -168,7 +218,7 @@ function WorkplaceManagement({ API_URL }) {
             <div className="p-6 flex flex-wrap gap-2">
               {province.cities?.map(city => (
                 <span key={city.cityName} className="group relative bg-white border border-slate-200 text-slate-600 pl-4 pr-10 py-2 rounded-xl text-sm font-bold shadow-sm">
-                  {city.cityName}
+                  {city.cityName.replace(province.provinceName + " ", "")}
                   <button 
                     onClick={() => deleteCity(city.cityName)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
@@ -205,8 +255,40 @@ function WorkplaceManagement({ API_URL }) {
           </div>
         </div>
       )}
+      {/* 삭제 확인 커스텀 모달 */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} />
+              </div>
+              <h4 className="text-xl font-black text-slate-800 mb-3">정말 삭제하시겠습니까?</h4>
+              <p className="text-slate-500 text-sm leading-relaxed font-medium">
+                <span className="text-rose-600 font-bold">[{deleteTarget?.name}]</span>를 삭제하면<br />
+                소속된 모든 지역 <span className="font-bold">({deleteTarget?.count}개)</span>도 함께 삭제됩니다.
+              </p>
+            </div>
+            <div className="flex border-t border-slate-100">
+              <button 
+                onClick={() => setIsDeleteModalOpen(false)} 
+                className="flex-1 py-5 text-slate-400 font-bold hover:bg-slate-50 transition-colors"
+              >
+                취소
+              </button>
+              <button 
+                onClick={confirmDelete} 
+                className="flex-1 py-5 bg-rose-500 text-white font-black hover:bg-rose-600 transition-colors"
+              >
+                삭제하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
 }
 
 export default WorkplaceManagement;

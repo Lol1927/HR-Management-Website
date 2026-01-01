@@ -1,33 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Award, Calendar, Users, ChevronRight,Star } from 'lucide-react';
+import { Award, Calendar, Users, ChevronRight, Star } from 'lucide-react';
+// 🔹 생성할 전체 화면 컴포넌트 임포트
+import EventEvaluationFullModal from './EventEvaluationFullModal'; 
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 function StaffEvaluation() {
   const [evaluationEvents, setEvaluationEvents] = useState([]);
+  // 🔹 선택된 이벤트를 관리할 상태 추가
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/events`);
-        
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 📅 한 달 전 날짜 계산
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         oneMonthAgo.setHours(0, 0, 0, 0);
 
-        // 필터 조건: (이벤트 종료일 < 오늘) AND (이벤트 종료일 >= 한 달 전)
         const filtered = res.data.filter(ev => {
           const endDate = new Date(ev.endDate);
           endDate.setHours(0, 0, 0, 0);
           return endDate < today && endDate >= oneMonthAgo;
         });
 
-        // 최신순 정렬
         filtered.sort((a, b) => new Date(b.endDate) - new Date(a.endDate));
         setEvaluationEvents(filtered);
       } catch (err) {
@@ -54,6 +54,8 @@ function StaffEvaluation() {
           evaluationEvents.map(ev => (
             <div 
               key={ev.id} 
+              // 🔹 클릭 시 해당 이벤트 정보를 set
+              onClick={() => setSelectedEvent(ev)}
               className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer"
             >
               <div className="flex justify-between items-start mb-6">
@@ -91,6 +93,15 @@ function StaffEvaluation() {
           </div>
         )}
       </div>
+
+      {/* 🔹 선택된 이벤트가 있을 때만 전체 화면 평가 컴포넌트 렌더링 */}
+      {selectedEvent && (
+        <EventEvaluationFullModal 
+          event={selectedEvent} 
+          onClose={() => setSelectedEvent(null)} 
+          API_URL={API_BASE_URL}
+        />
+      )}
     </div>
   );
 }

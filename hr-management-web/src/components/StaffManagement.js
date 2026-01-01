@@ -2,7 +2,7 @@ import React, { useState,useMemo } from 'react';
 import { Plus, Edit3, Trash2,ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee,setIsBulkModalOpen,provinces = [],cities = [] }) {
+function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelete, setSelectedEmployee,setIsBulkModalOpen,provinces = [],cities = [],onRefresh }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isProvinceOpen, setIsProvinceOpen] = useState(false);
   const [selectedProvince, setSelectedProvince] = useState("모든 주");
@@ -14,6 +14,14 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
     setSelectedProvince(provinceName);
     setIsProvinceOpen(false); // 선택 후 목록 닫기
   };
+
+  // StaffManagement 컴포넌트 안쪽 상단에 추가
+  React.useEffect(() => {
+    if (typeof onRefresh === 'function') {
+      console.log("직원 관리 페이지 진입: 데이터 리프레시 실행");
+      onRefresh(); 
+    }
+  }, []); // []는 컴포넌트가 처음 나타날 때 딱 한 번 실행됨
 
     const availableCities = useMemo(() => {
       if (selectedProvince === "모든 주") return [];
@@ -149,14 +157,18 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
                     전체 보기
                   </button>
                   {cities
-                    .filter(c => c.provinceName === selectedProvince)
+                    .filter(c => 
+                      c.provinceName === selectedProvince && 
+                      c.cityName !== `${selectedProvince} 전체` // <-- "도이름 전체" 항목 숨기기
+                    )
                     .map((c, idx) => (
                       <button
                         key={idx}
                         onClick={() => { setSelectedCity(c.cityName); setIsCityOpen(false); }}
                         className="w-full text-left px-5 py-3.5 text-sm font-bold hover:bg-slate-50 border-b border-slate-50 last:border-none text-slate-600"
                       >
-                        {c.cityName}
+                        {/* 목록 표시할 때도 도 이름을 떼고 시 이름만 깔끔하게 표시 */}
+                        {c.cityName.replace(`${selectedProvince} `, "")}
                       </button>
                     ))
                   }
@@ -216,11 +228,20 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
                   </td>
                   <td className="p-6 text-center">
                     <div className="flex flex-wrap gap-1.5 justify-center">
-                      {emp.availableWork?.map((region) => (
-                        <span key={region} className="px-3 py-1 bg-blue-50 text-blue-600 text-[11px] font-bold rounded-full border border-blue-100">
-                          {region}
-                        </span>
-                      ))}
+                      {emp.availableWork?.map((region) => {
+                        const words = region.split(" ");
+                        const uniqueWords = [...new Set(words)];
+                        const displayRegion = uniqueWords.join(" ");
+
+                        return (
+                          <span 
+                            key={region} 
+                            className="px-3 py-1 bg-blue-50 text-blue-600 text-[11px] font-bold rounded-full border border-blue-100"
+                          >
+                            {displayRegion}
+                          </span>
+                        );
+                      })}
                     </div>
                   </td>
                   <td className="p-6 text-right">

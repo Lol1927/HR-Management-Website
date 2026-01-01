@@ -115,44 +115,65 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
     setData(newData);
   };
 
-  const handleSaveAll = async () => {
-    // 1. 중복되지 않은(신규) 인원만 필터링
+ const handleSaveAll = async () => {
     const newPeople = data.filter(emp => !emp.isDuplicate);
     if (newPeople.length === 0) return alert("등록할 새로운 인원이 없습니다.");
 
     try {
-        // 2. 엑셀에 적힌 모든 근무지(KT 위즈 포함)를 추출하고 중복 제거
-        // 예: ["고양시", "KT 위즈", "고양시"] -> ["고양시", "KT 위즈"]
-        const allWorkplaceNames = [...new Set(newPeople.flatMap(emp => emp.availableWork))];
+      // 1. 엑셀 데이터에서 모든 주(Province)와 시(City) 관계 추출
+      // 예: [{ p: "경기도", c: "수원시" }, { p: "서울특별시", c: "강남구" }]
+      const regionMap = new Map();
+      newPeople.forEach(emp => {
+        emp.availableWork.forEach(loc => {
+          const [p, c] = loc.split(" ");
+          if (p && c) {
+            if (!regionMap.has(p)) regionMap.set(p, new Set());
+            regionMap.get(p).add(c);
+          }
+        });
+      });
 
-        // 3. 근무지 등록 (중복 생성 방지 로직)
-        const workplacePromises = allWorkplaceNames.map(name => 
-        axios.post(`${API_URL}/workplace`, { placeName: name })
-            .then(() => console.log(`${name} 등록 성공`))
-            .catch(err => {
-            // 백엔드에서 '이미 존재함' 에러가 나더라도 무시하고 진행
-            console.warn(`${name} 등록 건너뜀 (이미 존재할 가능성 높음)`);
-            return null; 
-            })
-        );
-        
-        // 근무지 등록이 모두 끝날 때까지 대기
-        await Promise.all(workplacePromises);
+      // 2. 주(Province) 등록 진행
+      for (const provinceName of regionMap.keys()) {
+        try {
+          // 중복 체크는 백엔드에서 처리한다고 가정하고 post 전송
+          await axios.post(`${API_URL}/province`, { provinceName });
+        } catch (e) {
+          // 이미 존재하는 경우 등 에러 발생 시 무시하고 진행
+          console.warn(`${provinceName} 주 등록 스킵`);
+        }
+      }
 
-        // 4. 이제 실제 직원 정보 등록
-        const employeePromises = newPeople.map(emp => 
+      // 3. 시(City) 등록 진행
+      for (const [provinceName, cities] of regionMap.entries()) {
+        for (const cityName of cities) {
+          try {
+            // 백엔드 API 사양에 맞춰 provinceName과 cityName을 함께 전송
+            await axios.post(`${API_URL}/city`, { 
+              provinceName: provinceName, 
+              cityName: `${provinceName} ${cityName}` // DB 저장 형식에 맞춤
+            });
+          } catch (e) {
+            console.warn(`${cityName} 시 등록 스킵`);
+          }
+        }
+      }
+
+      // 4. 실제 직원 정보 등록
+      const employeePromises = newPeople.map(emp => 
         axios.post(`${API_URL}/employees`, emp)
-        );
-        await Promise.all(employeePromises);
+      );
+      
+      await Promise.all(employeePromises);
 
-        alert("모든 데이터가 성공적으로 처리되었습니다.");
-        onRefresh(); // 메인 화면 새로고침
-        onClose();   // 모달 닫기
+      alert("모든 지역 정보와 직원 데이터가 성공적으로 처리되었습니다.");
+      onRefresh(); // 부모(App.js)의 fetchEmployees, fetchRegions 호출 유도
+      onClose();   
     } catch (err) {
-        console.error("최종 저장 중 에러 발생:", err);
-        alert("직원 정보를 저장하는 중에 문제가 발생했습니다. (네트워크 상태 확인 필요)");
+      console.error("최종 저장 중 에러 발생:", err);
+      alert("데이터 저장 중 문제가 발생했습니다.");
     }
-    };
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[100]">

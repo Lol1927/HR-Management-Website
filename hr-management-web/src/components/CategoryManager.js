@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { MapPin, Tag, UserSquare } from 'lucide-react';
 import WorkplaceManagement from './WorkplaceManagement';
 
-function CategoryManager() {
+function CategoryManager({ onRefresh }) {
   // 현재 어떤 카테고리 탭을 보고 있는지 관리
   const [activeTab, setActiveTab] = useState('event_types');
   const MY_API_URL = process.env.REACT_APP_API_BASE_URL;

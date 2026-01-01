@@ -198,6 +198,10 @@ function App() {
             handleDelete={handleDelete}
             setSelectedEmployee={setSelectedEmployee}
             setIsBulkModalOpen={setIsBulkModalOpen}
+            onRefresh={() => {
+              fetchEmployees(); // 직원 목록 새로고침
+              fetchRegions();   // 지역 목록 새로고침
+            }}
           />
         )}
 
@@ -211,7 +215,7 @@ function App() {
           <StaffEvaluation />
         )}
         {activeMenu === 'category' && (
-          <CategoryManager />
+          <CategoryManager onRefresh={fetchRegions}/>
         )}
       </main>
 
@@ -306,6 +310,7 @@ function App() {
                       {cities.filter(c => c.provinceName === activeProvince).map((c, idx) => {
                         const fullRegionName = `${c.provinceName} ${c.cityName}`;
                         const isSelected = (newEmployee.availableWork || []).includes(fullRegionName);
+                        const displayCityName = c.cityName.replace(`${activeProvince} `, "");
                         return (
                           
 
@@ -317,7 +322,7 @@ function App() {
                               isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-md' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'
                             }`}
                           >
-                            {c.cityName}
+                            {displayCityName}
                           </button>
                         );
                       })}
@@ -329,12 +334,25 @@ function App() {
               {/* 선택된 지역 태그 */}
               <div className="mt-4 flex flex-wrap gap-2 p-2 bg-white/50 rounded-2xl border border-dashed border-slate-200 min-h-[50px]">
                 {(newEmployee.availableWork || []).length === 0 && <span className="text-[10px] text-slate-300 m-auto">선택된 지역이 없습니다.</span>}
-                {(newEmployee.availableWork || []).map(region => (
-                  <span key={region} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black flex items-center gap-1 border border-blue-100">
-                    {region}
-                    <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => handleRegionChange(region)} />
-                  </span>
-                ))}
+                {(newEmployee.availableWork || []).map((region) => {
+                  const words = region.split(" ");
+                  const uniqueWords = [...new Set(words)];
+                  const displayRegion = uniqueWords.join(" ");
+
+                  return (
+                    <span 
+                      key={region} 
+                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black flex items-center gap-1 border border-blue-100">
+                      {displayRegion}
+                      
+                      <X 
+                        size={12} 
+                        className="cursor-pointer hover:text-red-500" 
+                        onClick={() => handleRegionChange(region)} 
+                      />
+                    </span>
+                  );
+                })}
               </div>
             </div>
 

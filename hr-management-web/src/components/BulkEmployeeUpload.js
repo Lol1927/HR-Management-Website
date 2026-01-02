@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
-import { X, Download, FileUp, Save, Trash2 } from 'lucide-react';
+import { X, Download, FileUp, Save, Trash2 ,Loader2} from 'lucide-react';
 
 function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
-  const [data, setData] = useState([]); // 엑셀에서 추출한 데이터
+  const [data, setData] = useState([]); // 엑셀에서 추출한 데이터\
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     duplicates: 0,
@@ -40,6 +41,7 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     const reader = new FileReader();
+    
 
     reader.onload = (evt) => {
       const bstr = evt.target.result;
@@ -116,6 +118,8 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
   };
 
  const handleSaveAll = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const newPeople = data.filter(emp => !emp.isDuplicate);
     if (newPeople.length === 0) return alert("등록할 새로운 인원이 없습니다.");
 
@@ -290,10 +294,23 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
         {/* 4. 하단 액션 바 */}
         {data.length > 0 && (
           <div className="mt-6 flex gap-4 items-center p-4 bg-slate-900 rounded-[28px] shadow-2xl shadow-slate-200">
-             <button onClick={() => setData([])} className="px-8 py-4 rounded-xl font-black text-slate-400 hover:text-white transition-colors">초기화</button>
-             <div className="h-6 w-[1px] bg-slate-700 mx-2" />
-             <button onClick={handleSaveAll} className="flex-1 p-4 rounded-xl font-black bg-blue-600 text-white hover:bg-blue-500 transition-all flex items-center justify-center gap-3">
-               <Save size={20} /> {data.length}명의 직원 등록 완료하기
+             <button 
+               onClick={handleSaveAll} 
+               disabled={isSubmitting} // 제출 중일 때 클릭 금지
+               className={`flex-1 p-4 rounded-xl font-black text-white transition-all flex items-center justify-center gap-3 ${
+                 isSubmitting ? 'bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 shadow-lg'
+               }`}
+             >
+               {isSubmitting ? (
+                 <>
+                   <Loader2 size={20} className="animate-spin" /> 
+                   직원 등록 중입니다...
+                 </>
+               ) : (
+                 <>
+                   <Save size={20} /> {data.length}명의 직원 등록 완료하기
+                 </>
+               )}
              </button>
           </div>
         )}

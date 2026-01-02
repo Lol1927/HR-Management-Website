@@ -11,6 +11,7 @@ provider:
     POSITIONS_TABLE: PositionsTable  
     PROVINCE_TABLE: ${self:service}-provinces-${sls:stage}
     CITY_TABLE: ${self:service}-cities-${sls:stage}
+    HISTORY_TABLE: ${self:service}-history-${sls:stage}
 
   iam:
     role:
@@ -60,6 +61,16 @@ provider:
             - dynamodb:GetItem
             - dynamodb:DeleteItem
           Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.CITY_TABLE}"
+
+        # 6. 히스토리 테이블 권한
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem # 히스토리 배열 업데이트(list_append)를 위해 필수
+            - dynamodb:Scan
+            - dynamodb:Query
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.HISTORY_TABLE}"
 
 functions:
   # --- 기존 직원 관리 함수 ---
@@ -116,6 +127,8 @@ functions:
           method: delete
           cors: true
 
+  
+
   # --- 포지션 관리 함수 (수정됨) ---
   positionHandler:
     handler: functions/positionHandler.handler
@@ -163,7 +176,26 @@ functions:
           path: province/{provinceName}
           method: delete
           cors: true
-
+          
+    manageHistory:
+      handler: functions/employeeEventHistory.handler
+      events:
+        - http:
+            path: history
+            method: post # 생성 (추가)
+            cors: true
+        - http:
+            path: history/{employeeId}
+            method: get # 조회
+            cors: true
+        - http:
+            path: history/{employeeId}/{eventId}
+            method: put # 수정 (특정 이벤트 평가 수정)
+            cors: true
+        - http:
+            path: history/{employeeId}/{eventId}
+            method: delete # 삭제 (특정 이벤트 평가 삭제)
+            cors: true
 resources:
   Resources:
     # 직원 테이블
@@ -216,4 +248,17 @@ resources:
         KeySchema:
           - AttributeName: cityName
             KeyType: HASH # 파티션 키
+        BillingMode: PAY_PER_REQUEST
+
+    # 히스토리 테이블 생성
+    HistoryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.HISTORY_TABLE}
+        AttributeDefinitions:
+          - AttributeName: employeeId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: employeeId
+            KeyType: HASH
         BillingMode: PAY_PER_REQUEST

@@ -25,6 +25,7 @@ function App() {
   const [provinces, setProvinces] = useState([]);
   const [cities, setCities] = useState([]);
   const [activeProvince, setActiveProvince] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // 신규/수정용 직원 데이터 양식
   const [newEmployee, setNewEmployee] = useState({
@@ -91,18 +92,28 @@ function App() {
   // --- 이벤트 핸들러 ---
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // 2. 이미 제출 중이면 함수 실행을 차단 (중복 방어)
+    if (isSubmitting) return;
+
     try {
+      setIsSubmitting(true); // 제출 시작
+
       if (editingId) {
-        // 수정 시: /employees/ID 형태여야 함
         await axios.put(`${API_URL}/employees/${editingId}`, newEmployee);
       } else {
-        // 등록 시: /employees 형태여야 함
         await axios.post(`${API_URL}/employees`, newEmployee);
       }
+      
       alert("성공적으로 저장되었습니다.");
       closeModal();
       fetchEmployees();
-    } catch (err) { alert("저장 실패"); }
+    } catch (err) { 
+      alert("저장 실패"); 
+    } finally {
+      // 3. 성공하든 실패하든 마지막에 상태 해제
+      setIsSubmitting(false); 
+    }
   };
 
   const openEditModal = (emp) => {
@@ -114,6 +125,7 @@ function App() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
+    setIsSubmitting(false);
     setNewEmployee({ name: '', contact: '', bankName: '', accountNumber: '', residentNumber: '', status: '활성', availableWork: [] });
   };
 
@@ -267,8 +279,23 @@ function App() {
                 </div>
               </div>
 
-              <button type="submit" className="w-full py-5 bg-blue-600 text-white rounded-[24px] text-lg font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all mt-4">
-                {editingId ? "수정 완료" : "저장하기"}
+              <button 
+                type="submit" 
+                disabled={isSubmitting} // 4. 제출 중일 때 버튼 비활성화
+                className={`w-full py-5 text-white rounded-[24px] text-lg font-black transition-all mt-4 
+                  ${isSubmitting 
+                    ? 'bg-slate-400 cursor-not-allowed' // 제출 중일 때 회색 디자인
+                    : 'bg-blue-600 shadow-lg shadow-blue-200 hover:bg-blue-700'
+                  }`}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    {/* 간단한 로딩 텍스트나 스피너를 넣으면 더 좋습니다 */}
+                    <span>처리 중...</span>
+                  </div>
+                ) : (
+                  editingId ? "수정 완료" : "저장하기"
+                )}
               </button>
             </div>
 

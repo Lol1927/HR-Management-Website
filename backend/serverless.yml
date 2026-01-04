@@ -1,11 +1,14 @@
 service: hr-management-api
 
+useDotenv: true
+
 provider:
   name: aws
   runtime: nodejs18.x
   region: us-east-2
   # 환경 변수 정의
   environment:
+    SALT: ${env:SALT}
     EMPLOYEES_TABLE: ${self:service}-employees-${sls:stage}
     EVENTS_TABLE: Events
     POSITIONS_TABLE: PositionsTable  
@@ -24,6 +27,7 @@ provider:
             - dynamodb:GetItem
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
+            - dynamodb:ConditionCheckItem # <--- 이 부분 추가! 트랜잭션 시 필요합니다.
           Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.EMPLOYEES_TABLE}"
 
         # 2. 이벤트 테이블 권한
@@ -74,38 +78,26 @@ provider:
 
 functions:
   # --- 기존 직원 관리 함수 ---
-  createEmployee:
-    handler: functions/createEmployee.handler
+  employeeHandler:
+    handler: functions/employeeHandler.handler # 통합된 파일 경로 (파일명 확인!)
     events:
       - http:
           path: employees
           method: post
           cors: true
-
-  getEmployees:
-    handler: functions/getEmployees.handler
-    events:
       - http:
           path: employees
           method: get
           cors: true
-
-  updateEmployee:
-    handler: functions/updateEmployee.handler
-    events:
       - http:
           path: employees/{id}
           method: put
           cors: true
-
-  deleteEmployee:
-    handler: functions/deleteEmployee.handler
-    events:
       - http:
           path: employees/{id}
           method: delete
           cors: true
-
+    
   # --- 기존 이벤트 관리 함수 ---
   eventHandler:
     handler: functions/eventHandler.handler 
@@ -176,26 +168,26 @@ functions:
           path: province/{provinceName}
           method: delete
           cors: true
-          
-    manageHistory:
-      handler: functions/employeeEventHistory.handler
-      events:
-        - http:
-            path: history
-            method: post # 생성 (추가)
-            cors: true
-        - http:
-            path: history/{employeeId}
-            method: get # 조회
-            cors: true
-        - http:
-            path: history/{employeeId}/{eventId}
-            method: put # 수정 (특정 이벤트 평가 수정)
-            cors: true
-        - http:
-            path: history/{employeeId}/{eventId}
-            method: delete # 삭제 (특정 이벤트 평가 삭제)
-            cors: true
+
+  manageHistory:
+    handler: functions/employeeEventHistory.handler
+    events:
+      - http:
+          path: history
+          method: post # 생성 (추가)
+          cors: true
+      - http:
+          path: history/{employeeId}
+          method: get # 조회
+          cors: true
+      - http:
+          path: history/{employeeId}/{eventId}
+          method: put # 수정 (특정 이벤트 평가 수정)
+          cors: true
+      - http:
+          path: history/{employeeId}/{eventId}
+          method: delete # 삭제 (특정 이벤트 평가 삭제)
+          cors: true  
 resources:
   Resources:
     # 직원 테이블

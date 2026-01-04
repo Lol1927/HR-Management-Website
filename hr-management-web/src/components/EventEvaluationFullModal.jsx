@@ -6,6 +6,7 @@ function EventEvaluationFullModal({ event, onClose, API_URL }) {
   // 이벤트에 배정되었던 직원 목록 (데이터 구조에 따라 ev.assignedStaff 또는 ev.staffList)
   const staffList = event.assignedStaff || [];
   const [selectedStaff, setSelectedStaff] = useState(staffList[0] || null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // 평가 데이터 저장: { "직원ID": { rating: 5, comment: "" } }
   const [evalData, setEvalData] = useState({});
@@ -22,21 +23,26 @@ function EventEvaluationFullModal({ event, onClose, API_URL }) {
   };
 
   const handleSaveAll = async () => {
-    // 평가 데이터가 하나도 없으면 중단
+    // 1. 이미 제출 중이면 함수 실행 차단 (방어막)
+    if (isSubmitting) return;
+
     const staffIds = Object.keys(evalData);
     if (staffIds.length === 0) {
       alert("평가된 인원이 없습니다.");
       return;
     }
 
+    // 사용자 확인 (실수 방지)
+    if (!window.confirm("모든 인력의 평가 결과를 제출하시겠습니까?")) return;
+
     try {
-      // 1. 제출 중 상태 관리 (중복 클릭 방지)
-      // (useState로 isSubmitting을 선언했다고 가정)
+      // 2. 제출 시작 상태로 전환 (버튼 비활성화)
+      setIsSubmitting(true);
       
-      // 2. 모든 평가 데이터를 병렬로 전송
+      // 3. 모든 평가 데이터를 병렬로 전송
       const savePromises = staffIds.map(staffId => {
         const payload = {
-          employeeId: staffId, // 파티션 키
+          employeeId: staffId, 
           evaluation: {
             eventId: event.id,
             eventName: event.title,
@@ -47,10 +53,10 @@ function EventEvaluationFullModal({ event, onClose, API_URL }) {
           }
         };
         
-        // 백엔드 엔드포인트: /history (POST)
         return axios.post(`${API_URL}/history`, payload);
       });
 
+      // 모든 요청이 끝날 때까지 대기
       await Promise.all(savePromises);
 
       alert("모든 인력 평가가 성공적으로 저장되었습니다.");
@@ -58,6 +64,9 @@ function EventEvaluationFullModal({ event, onClose, API_URL }) {
     } catch (err) {
       console.error("평가 저장 중 에러:", err);
       alert("일부 데이터를 저장하는 데 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      // 4. 성공하든 실패하든 마지막에 제출 상태 해제 (중요!)
+      setIsSubmitting(false);
     }
   };
 

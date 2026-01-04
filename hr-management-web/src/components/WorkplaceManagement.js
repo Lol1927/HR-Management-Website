@@ -124,23 +124,32 @@ const confirmDelete = async () => {
   }
 };
   // 4. 시(City) 추가 (POST)
-  const handleCitySubmit = async () => {
+  // 4. 시(City) 추가 (POST) 수정본
+const handleCitySubmit = async () => {
     if (!newCityName.trim()) return;
+
+    // 핵심: 사용자가 입력한 이름 앞에 도 이름을 붙여서 '고유한 이름'을 만듭니다.
+    // 예: "수원시" -> "경기도 수원시"
+    const combinedCityName = `${targetProvinceName} ${newCityName.trim()}`;
+
     try {
       const res = await axios.post(`${API_URL}/city`, { 
-        cityName: newCityName,
+        cityName: combinedCityName, // 조합된 이름을 ID/이름으로 사용
         provinceName: targetProvinceName 
       });
+
       if (res.data.error) {
         alert(res.data.error);
       } else {
         await fetchData();
-        if (onRefresh) await onRefresh()
+        if (onRefresh) await onRefresh();
         setNewCityName("");
         setIsCityModalOpen(false);
       }
     } catch (err) {
-      alert("시 등록 중 오류 발생");
+      // 백엔드에서 중복 체크를 할 경우에 대한 대응
+      console.error("시 등록 중 오류:", err);
+      alert("이미 등록된 지역이거나 등록 중 오류가 발생했습니다.");
     }
   };
 
@@ -216,17 +225,30 @@ const confirmDelete = async () => {
               </div>
             </div>
             <div className="p-6 flex flex-wrap gap-2">
-              {province.cities?.map(city => (
-                <span key={city.cityName} className="group relative bg-white border border-slate-200 text-slate-600 pl-4 pr-10 py-2 rounded-xl text-sm font-bold shadow-sm">
-                  {city.cityName.replace(province.provinceName + " ", "")}
-                  <button 
-                    onClick={() => deleteCity(city.cityName)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+              {province.cities?.map(city => {
+                // 1. "도이름 전체" 형식인지 확인하는 조건 생성
+                const isDefaultAll = city.cityName === `${province.provinceName} 전체`;
+
+                // 2. 만약 "전체" 항목이라면 아예 렌더링하지 않음 (null 반환)
+                if (isDefaultAll) return null;
+
+                return (
+                  <span 
+                    key={city.cityName} 
+                    className="group relative bg-white border border-slate-200 text-slate-600 pl-4 pr-10 py-2 rounded-xl text-sm font-bold shadow-sm"
                   >
-                    <X size={14} />
-                  </button>
-                </span>
-              ))}
+                    {/* 기존 로직: 도 이름 제거 후 표시 */}
+                    {city.cityName.replace(province.provinceName + " ", "")}
+                    
+                    <button 
+                      onClick={() => deleteCity(city.cityName)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           </div>
         ))}

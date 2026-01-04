@@ -92,16 +92,19 @@ function App() {
   // --- 이벤트 핸들러 ---
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // 2. 이미 제출 중이면 함수 실행을 차단 (중복 방어)
     if (isSubmitting) return;
 
     try {
-      setIsSubmitting(true); // 제출 시작
+      setIsSubmitting(true);
 
       if (editingId) {
+        // 수정 시: 현재 주민번호(residentNumber)가 원본인지 마스킹(* 포함)인지에 따라 
+        // 백엔드에서 ID 변경 여부를 결정합니다.
         await axios.put(`${API_URL}/employees/${editingId}`, newEmployee);
       } else {
+        // 등록 시: 백엔드가 residentNumber를 해시하여 ID를 만드므로 
+        // 프론트엔드에서는 절대 ID를 직접 생성해서 보내면 안 됩니다.
+        // 현재 newEmployee 구조에 id가 없으므로 그대로 보냅니다.
         await axios.post(`${API_URL}/employees`, newEmployee);
       }
       
@@ -109,9 +112,11 @@ function App() {
       closeModal();
       fetchEmployees();
     } catch (err) { 
-      alert("저장 실패"); 
+      // 백엔드에서 보낸 에러 메시지(예: "이미 등록된 주민번호입니다.") 출력
+      const errorMessage = err.response?.data?.message || "저장 실패";
+      alert(errorMessage); 
+      console.error("에러 상세:", err.response?.data);
     } finally {
-      // 3. 성공하든 실패하든 마지막에 상태 해제
       setIsSubmitting(false); 
     }
   };
@@ -361,25 +366,32 @@ function App() {
               {/* 선택된 지역 태그 */}
               <div className="mt-4 flex flex-wrap gap-2 p-2 bg-white/50 rounded-2xl border border-dashed border-slate-200 min-h-[50px]">
                 {(newEmployee.availableWork || []).length === 0 && <span className="text-[10px] text-slate-300 m-auto">선택된 지역이 없습니다.</span>}
-                {(newEmployee.availableWork || []).map((region) => {
-                  const words = region.split(" ");
-                  const uniqueWords = [...new Set(words)];
-                  const displayRegion = uniqueWords.join(" ");
+                
+                  {(newEmployee.availableWork || []).map((region) => {
+                    // 1. 우선 " 전체" 글자를 제거
+                    let displayRegion = region.replace(" 전체", "").trim();
 
-                  return (
-                    <span 
-                      key={region} 
-                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black flex items-center gap-1 border border-blue-100">
-                      {displayRegion}
-                      
-                      <X 
-                        size={12} 
-                        className="cursor-pointer hover:text-red-500" 
-                        onClick={() => handleRegionChange(region)} 
-                      />
-                    </span>
-                  );
-                })}
+                    // 2. "서울특별시 서울특별시" 처럼 중복된 경우 하나를 제거
+                    // 공백으로 나눈 뒤, 앞뒤 단어가 같으면 하나만 남김
+                    const parts = displayRegion.split(" ");
+                    if (parts.length === 2 && parts[0] === parts[1]) {
+                      displayRegion = parts[0]; 
+                    }
+
+                    return (
+                      <span 
+                        key={region} 
+                        className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black flex items-center gap-1 border border-blue-100"
+                      >
+                        {displayRegion}
+                        <X 
+                          size={12} 
+                          className="cursor-pointer hover:text-red-500" 
+                          onClick={() => handleRegionChange(region)} 
+                        />
+                      </span>
+                    );
+                  })}
               </div>
             </div>
 

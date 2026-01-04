@@ -32,24 +32,24 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
   const filteredList = employees.filter(emp => {
     // 1. 검색어 필터 (이름, 연락처)
     const matchesSearch = 
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      emp.contact.includes(searchTerm);
+      emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      emp.contact?.includes(searchTerm);
 
     // 2. 도(Province) 필터링
     const isAllProvince = selectedProvince === "모든 주" || !selectedProvince;
     const matchesProvince = isAllProvince || 
-      emp.availableWork?.some(loc => {
-        // 데이터가 "서울특별시 강남구" 형태일 때 "서울특별시"가 포함되어 있는지 확인
-        const locString = typeof loc === 'object' ? `${loc.province} ${loc.city}` : String(loc);
-        return locString.includes(selectedProvince); 
-      });
+    emp.availableWork?.some(loc => {
+      const locString = String(loc);
+      // startsWith 대신 includes를 사용하면 중복 데이터에서도 검색이 잘 됩니다.
+      return locString.includes(selectedProvince); 
+    });
 
     // 3. 시(City) 필터링
     const isAllCity = !selectedCity || selectedCity === "전체 보기";
     const matchesCity = isAllCity || 
       emp.availableWork?.some(loc => {
-        const locString = typeof loc === 'object' ? loc.city : String(loc);
-        // 선택된 시(예: 강남구)가 데이터에 포함되어 있는지 확인
+        const locString = String(loc);
+        // "경기도 안산시"에서 "안산시"가 포함되어 있는지 확인
         return locString.includes(selectedCity);
       });
 
@@ -61,7 +61,7 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
       <header className="flex justify-between items-center mb-10">
         <div>
           <h2 className="text-3xl font-black tracking-tight text-slate-800">{t('staff_management.header_title')}</h2>
-          <p className="text-slate-400 font-medium mt-1">{t('staff_management.header_subtitle')}</p>
+          <p className="text-slate-400 font-mediu<pm mt-1">{t('staff_management.header_subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -229,9 +229,15 @@ function StaffManagement({ employees, setIsModalOpen, openEditModal, handleDelet
                   <td className="p-6 text-center">
                     <div className="flex flex-wrap gap-1.5 justify-center">
                       {emp.availableWork?.map((region) => {
-                        const words = region.split(" ");
-                        const uniqueWords = [...new Set(words)];
-                        const displayRegion = uniqueWords.join(" ");
+                        // 1. " 전체" 라는 글자를 제거
+                        let displayRegion = region.replace(" 전체", "").trim();
+
+                        // 2. "서울특별시 서울특별시" 처럼 중복된 경우 하나만 표시하도록 처리
+                        const parts = displayRegion.split(" ");
+                        if (parts.length >= 2 && parts[0] === parts[1]) {
+                          // 앞뒤 단어가 같으면 (예: 서울특별시 서울특별시) 뒤의 단어들만 합쳐서 출력
+                          displayRegion = parts.slice(1).join(" ");
+                        }
 
                         return (
                           <span 

@@ -21,6 +21,21 @@ function EventManager() {
   const [selectedEventForView, setSelectedEventForView] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
   const [workplaceOptions, setWorkplaceOptions] = useState([]);
+  const [provinces, setProvinces] = useState([]); // 주(Province) 데이터 상태 추가
+  const [cities, setCities] = useState([]);
+
+  const fetchLocationData = async () => {
+    try {
+      const [provRes, cityRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/province`), // API 엔드포인트는 실제 서버 설정에 맞게 조정하세요
+        axios.get(`${API_BASE_URL}/city`)
+      ]);
+      setProvinces(provRes.data);
+      setCities(cityRes.data);
+    } catch (err) {
+      console.error("지역 데이터 로드 실패:", err);
+    }
+  };
 
   const fetchWorkplaces = async () => {
     try {
@@ -68,6 +83,7 @@ function EventManager() {
   useEffect(() => {
     fetchEvents();
     fetchWorkplaces();
+    fetchLocationData();
   }, []);
 
   // 2. 수정 모드로 전환하는 핸들러
@@ -163,6 +179,8 @@ function EventManager() {
           selectionInfo={selectionInfo} 
           initialData={editingEvent}
           workplaces={workplaceOptions}
+          provinces={provinces}
+          cities={cities}
           onClose={() => {
             setIsAddModalOpen(false);
             setEditingEvent(null);

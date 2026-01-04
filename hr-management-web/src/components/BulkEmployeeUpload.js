@@ -7,9 +7,10 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
   const [data, setData] = useState([]); // 엑셀에서 추출한 데이터\
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState({
-    total: 0,
-    duplicates: 0,
-    final: 0
+    total: 0,       // 엑셀 전체 행 수
+    duplicates: 0,  // 중복으로 제외된 수
+    needReview: 0,  // 데이터 누락/오류로 검토가 필요한 수
+    final: 0        // 실제 등록 가능 수
   });
 
   // 1. 엑셀 형식 다운로드 (사용자가 올린 양식 기준)
@@ -38,74 +39,76 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
     XLSX.writeFile(wb, "직원_등록_양식.xlsx");
   };
 
-  const handleFileUpload = (e) => {
+ const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    const reader = new FileReader();
-    
+    if (!file) return;
 
+    const reader = new FileReader();
     reader.onload = (evt) => {
       const bstr = evt.target.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 
       if (!json || json.length === 0) {
-        alert("엑셀 파일에 데이터가 없거나 형식이 잘못되었습니다.");
-        e.target.value = "";
+        alert("데이터가 없습니다.");
         return;
       }
 
       const dbList = employees || [];
       const seenInFile = new Set();
+      
+      let duplicateCount = 0;
+      let reviewCount = 0;
+      
+      const processed = json.map((row, idx) => {
+        const name = String(row["이름"] || "").trim();
+        const contact = String(row["연락처"] || "").trim();
+        const resNumRaw = String(row["주민등록번호"] || "").trim();
+        const cleanResNum = resNumRaw.replace(/[^0-9]/g, "");
 
-      const formatted = json.map((row, idx) => {
-        const excelResRaw = String(row["주민등록번호"] || "").trim();
-        const cleanExcelRes = excelResRaw.replace(/[^0-9]/g, "");
+        // 1. 중복 체크 (DB 대조 + 파일 내 중복)
+        const isDuplicateInDB = dbList.some(emp => 
+          emp.residentNumber?.replace(/[^0-9]/g, "") === cleanResNum
+        );
+        const isDuplicateInFile = seenInFile.has(cleanResNum);
+        
+        const isDuplicate = cleanResNum !== "" && (isDuplicateInDB || isDuplicateInFile);
+        if (cleanResNum !== "") seenInFile.add(cleanResNum);
 
-        let duplicateFound = false;
-        const isDuplicateInDB = dbList.some((emp) => {
-          const dbResRaw = String(emp.residentNumber || "").trim();
-          const cleanDBRes = dbResRaw.replace(/[^0-9]/g, "");
-          return cleanExcelRes !== "" && cleanExcelRes === cleanDBRes;
-        });
-        const isDuplicateInFile = seenInFile.has(cleanExcelRes);
-        if (isDuplicateInDB || isDuplicateInFile) duplicateFound = true;
-        if (cleanExcelRes !== "") seenInFile.add(cleanExcelRes);
-
-        // ✅ [핵심 수정] 객체가 아닌 "문자열"로 변환
-        const province = String(row["주"] || "").trim();
-        const city = String(row["시"] || "전체").trim(); // 시가 비어있으면 "전체"
-
-        // "경기도 수원시" 또는 "서울 전체" 형태의 문자열 생성
-        const locationString = province ? `${province} ${city}` : "";
+        // 2. 검토 필요 체크 (이름/연락처 누락 또는 주민번호 형식 이상)
+        const isInvalid = !name || !contact || cleanResNum.length < 13;
 
         return {
-          tempId: idx,
-          name: row["이름"] || "이름없음",
-          contact: String(row["연락처"] || "").trim(),
-          bankName: String(row["은행"] || "").trim(),
-          accountNumber: String(row["계좌번호"] || "").trim(),
-          residentNumber: excelResRaw,
-          // 🔹 백엔드 사양에 맞춰 문자열 배열로 저장
-          availableWork: locationString ? [locationString] : [], 
-          isDuplicate: duplicateFound
+          ...row,
+          name,
+          contact,
+          residentNumber: resNumRaw,
+          isDuplicate,
+          isInvalid,
+          tempId: idx
         };
       });
 
-      const filteredData = formatted.filter(item => !item.isDuplicate);
-      
+      // 최종 리스트: 중복은 완전히 제외, 데이터 오류(isInvalid)는 목록엔 두되 경고 표시
+      const filteredData = processed.filter(item => {
+        if (item.isDuplicate) {
+          duplicateCount++;
+          return false;
+        }
+        if (item.isInvalid) {
+          reviewCount++;
+        }
+        return true;
+      });
+
       setStats({
         total: json.length,
-        duplicates: json.length - filteredData.length,
+        duplicates: duplicateCount,
+        needReview: reviewCount,
         final: filteredData.length
       });
 
-      if (filteredData.length === 0) {
-        alert("추가할 인력이 없습니다. (중복 데이터)");
-        setData([]);
-        e.target.value = "";
-      } else {
-        setData(filteredData);
-      }
+      setData(filteredData);
     };
     reader.readAsBinaryString(file);
   };

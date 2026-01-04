@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users as UsersIcon, Search, Check } from 'lucide-react';
+import { X, Users as UsersIcon, Search, Check,ChevronDown } from 'lucide-react';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -17,7 +17,7 @@ const formatPay = (value) => {
   return number.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,workplaces }) => {
+const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,provinces = [],  cities = [] }) => {
   // --- 상태 관리 ---
   const [title, setTitle] = useState(initialData?.title || '');
   const [startTime, setStartTime] = useState('09:00');
@@ -28,12 +28,14 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,
   const [staffPay, setStaffPay] = useState({});
   const [positions, setPositions] = useState([]);
   const [staffPositions, setStaffPositions] = useState({});
-  const [isAddingPosition, setIsAddingPosition] = useState(false);
-  const [newPositionName, setNewPositionName] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [allAssignedData, setAllAssignedData] = useState(initialData?.assignedStaff || []);
   const [staffTimes, setStaffTimes] = useState({});
-  const [selectedRegion, setSelectedRegion] = useState("모든 지역");
+  const [isProvinceOpen, setIsProvinceOpen] = useState(false);
+  const [isCityOpen, setIsCityOpen] = useState(false);
+
+  const [selectedProvince, setSelectedProvince] = useState("모든 주");
+  const [selectedCity, setSelectedCity] = useState("전체 보기");
 
   // --- 날짜 계산 ---
   const getDatesInRange = (start, end) => {
@@ -48,15 +50,61 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,
     return dates;
   };
 
-  const filteredStaffList = employees.filter(e => {
-    const matchesName = e.name.includes(searchName);
-    const matchesRegion = 
-      selectedRegion === "모든 지역" || 
-      (e.availableWork && e.availableWork.includes(selectedRegion));
-    
-    return matchesName && matchesRegion;
-  });
+  const filteredStaffList = employees.filter(emp => {
+    // 1. 이름/연락처 검색 (emp?.name 처럼 물음표 추가)
+    const matchesSearch = 
+      (emp.name?.includes(searchName)) || 
+      (emp.contact?.includes(searchName)) ||
+      (emp.phone?.includes(searchName));
 
+    // 2. 주(Province) 필터링
+    const isAllProvince = selectedProvince === "모든 주";
+    const matchesProvince = isAllProvince || 
+      emp.availableWork?.some(loc => String(loc).includes(selectedProvince));
+
+    // 3. 시(City) 필터링
+    const isAllCity = selectedCity === "전체 보기";
+    const matchesCity = isAllCity || 
+      emp.availableWork?.some(loc => String(loc).includes(selectedCity));
+
+    return matchesSearch && matchesProvince && matchesCity;
+  });
+  // 임시 저장 핸들러: 중간 단계에서도 무조건 저장 후 닫기
+  const handleTempSave = async () => {
+    // 현재 페이지에서 선택된 데이터까지 포함시키기 위해 데이터 정리
+    const currentDayStaff = selectedStaffIds.map(id => {
+      const s = employees.find(e => e.id === id);
+      return { 
+        date: currentEditDate,
+        id: s.id, 
+        name: s.name,
+        phone: s.phone,
+        positions: staffPositions[id] || [],
+        workStart: staffTimes[id]?.start || startTime,
+        workEnd: staffTimes[id]?.end || endTime,
+        pay: staffPay[id] || "0"
+      };
+    });
+
+    const filteredOtherDays = allAssignedData.filter(s => s.date !== currentEditDate);
+    const updatedTotalStaff = [...filteredOtherDays, ...currentDayStaff];
+
+    try {
+      await axios.post(`${API_BASE_URL}/events`, {
+        id: initialData?.id || Date.now().toString(),
+        title: title || "제목 없음(임시저장)", // 제목이 없어도 저장 가능하게 허용
+        startDate: dateList[0],
+        endDate: dateList[dateList.length - 1],
+        assignedStaff: updatedTotalStaff,
+        status: "draft" // 옵션: 나중에 임시저장 건만 따로 구분하고 싶을 때 사용
+      });
+      alert("현재 단계까지 임시 저장되었습니다.");
+      onSaveSuccess(); // 목록 새로고침 후 모달 닫기
+    } catch (err) {
+      alert("임시 저장 실패");
+    }
+};
+  
   const dateList = getDatesInRange(selectionInfo.startStr, selectionInfo.endStr);
   const currentEditDate = dateList[currentIndex];
 
@@ -125,26 +173,7 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,
     setter(digits.length >= 3 ? `${hh}:${mm}` : hh);
   };
 
-  const addNewPosition = async () => {
-    const trimmed = newPositionName.trim();
-    if (trimmed && !positions.includes(trimmed)) {
-      try {
-        await axios.post(`${API_BASE_URL}/positions`, { name: trimmed });
-        setPositions([...positions, trimmed]);
-        setNewPositionName('');
-        setIsAddingPosition(false);
-      } catch (err) { alert("포지션 저장 실패"); }
-    }
-  };
 
-  const deletePosition = async (posName) => {
-    if (!window.confirm(`'${posName}' 포지션을 삭제하시겠습니까?`)) return;
-    try {
-      await axios.delete(`${API_BASE_URL}/positions/${encodeURIComponent(posName)}`);
-      setPositions(prev => prev.filter(p => p !== posName));
-      alert("삭제되었습니다.");
-    } catch (err) { alert("삭제 실패"); }
-  };
 
   const toggleStaff = (id) => {
     selectedStaffIds.includes(id) 
@@ -225,30 +254,7 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,
             </div>
           </div>
 
-          {/* 포지션 설정 */}
-          <div className="mb-6 p-6 bg-blue-50/50 rounded-[30px] border border-blue-100">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-xs font-black text-blue-600 uppercase tracking-tight">포지션 설정</span>
-              {!isAddingPosition ? (
-                <button onClick={() => setIsAddingPosition(true)} className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-all underline underline-offset-4">
-                  포지션 추가 +
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <input autoFocus className="text-xs p-1 border-b border-blue-400 bg-transparent outline-none w-24 font-bold" value={newPositionName} onChange={(e) => setNewPositionName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addNewPosition()} placeholder="이름 입력" />
-                  <button onClick={addNewPosition} className="text-xs font-black text-blue-600">저장</button>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {positions.map(pos => (
-                <span key={pos} className="group relative px-3 py-1 bg-white border border-blue-200 rounded-full text-[11px] font-black text-blue-600 flex items-center gap-1 shadow-sm">
-                  {pos}
-                  <button onClick={() => deletePosition(pos)} className="text-blue-200 hover:text-red-500 transition-colors ml-1"><X size={12} /></button>
-                </span>
-              ))}
-            </div>
-          </div>
+          
 
           {/* 직원 검색 및 리스트 */}
           <div className="flex gap-2 mb-4">
@@ -263,17 +269,90 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,
               />
             </div>
 
-            {/* 지역 필터 드롭다운 추가 */}
-            <select 
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              className="flex-1 px-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-600 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              <option value="모든 지역">모든 지역</option>
-              {workplaces && workplaces.map((wp, idx) => (
-                <option key={idx} value={wp}>{wp}</option>
-              ))}
-            </select>
+            {/* 1. 지역 선택 (Province) - 너비 축소 및 패딩 조절 */}
+            <div className="w-40 relative"> {/* w-64에서 w-40으로 축소 */}
+              <p className="text-[10px] font-bold text-slate-400 ml-1 mb-1 uppercase">지역 선택</p>
+              <button 
+                onClick={() => {
+                  setIsProvinceOpen(!isProvinceOpen);
+                  setIsCityOpen(false);
+                }}
+                className={`w-full p-2.5 rounded-xl font-bold text-xs flex justify-between items-center shadow-md transition-all ${
+                  selectedProvince !== "모든 주" ? "bg-blue-600 text-white" : "bg-white text-slate-700 border border-slate-100"
+                }`}
+              >
+                <span className="truncate mr-1">{selectedProvince}</span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform duration-300 ${isProvinceOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isProvinceOpen && (
+                <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                  <button
+                    onClick={() => { setSelectedProvince("모든 주"); setSelectedCity("전체 보기"); setIsProvinceOpen(false); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 border-b border-slate-50 text-slate-600"
+                  >
+                    모든 주
+                  </button>
+                  <div className="max-h-48 overflow-y-auto"> {/* 리스트가 길면 스크롤 발생 */}
+                    {provinces.map((p, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => { 
+                          setSelectedProvince(p.provinceName); 
+                          setSelectedCity("전체 보기"); 
+                          setIsProvinceOpen(false); 
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 border-b border-slate-50 last:border-none text-slate-600"
+                      >
+                        {p.provinceName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+           {/* 2. 세부 시 (City) - 너비 축소 및 애니메이션 유지 */}
+          {selectedProvince !== "모든 주" && (
+            <div className="w-40 relative animate-in fade-in slide-in-from-left-2 duration-300">
+              <p className="text-[10px] font-bold text-slate-400 ml-1 mb-1 uppercase">세부 시</p>
+              <button 
+                onClick={() => {
+                  setIsCityOpen(!isCityOpen);
+                  setIsProvinceOpen(false);
+                }}
+                className="w-full bg-emerald-500 text-white p-2.5 rounded-xl font-bold text-xs flex justify-between items-center shadow-md"
+              >
+                <span className="truncate mr-1">{selectedCity}</span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform duration-300 ${isCityOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isCityOpen && (
+                <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-40 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                  <button
+                    onClick={() => { setSelectedCity("전체 보기"); setIsCityOpen(false); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 border-b border-slate-50 text-slate-600"
+                  >
+                    전체 보기
+                  </button>
+                  <div className="max-h-48 overflow-y-auto">
+                    {cities
+                      .filter(c => c.provinceName === selectedProvince && c.cityName !== `${selectedProvince} 전체`)
+                      .map((c, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => { setSelectedCity(c.cityName); setIsCityOpen(false); }}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 border-b border-slate-50 last:border-none text-slate-600"
+                        >
+                          {c.cityName.replace(`${selectedProvince} `, "")}
+                        </button>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           </div>
           
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
@@ -355,9 +434,28 @@ const EventAddFullModal = ({ selectionInfo, onClose, onSaveSuccess, initialData,
             })}
           </div>
 
-          <div className="mt-10 pt-8 border-t border-slate-100 flex justify-end gap-4">
-            <button onClick={onClose} className="px-10 py-5 font-black text-slate-400">취소</button>
-            <button onClick={handleStepNext} className="px-14 py-5 bg-blue-600 text-white rounded-[28px] font-black shadow-2xl hover:bg-blue-700 transition-all">
+          <div className="mt-10 pt-8 border-t border-slate-100 flex justify-end items-center gap-4">
+            {/* 취소 버튼: 텍스트 형태로 무게감을 줄여서 왼쪽에 배치 */}
+            <button 
+              onClick={onClose} 
+              className="px-6 py-4 font-black text-slate-400 hover:text-slate-600 transition-colors mr-2"
+            >
+              취소
+            </button>
+
+            {/* 임시 저장: 노란색(Amber), 중간 강조 */}
+            <button 
+              onClick={handleTempSave}
+              className="px-8 py-4 bg-amber-400 text-white rounded-[22px] font-black shadow-md hover:bg-amber-500 hover:-translate-y-0.5 transition-all active:scale-95"
+            >
+              임시 저장
+            </button>
+
+            {/* 다음/완료: 파란색(Blue), 최대 강조 */}
+            <button 
+              onClick={handleStepNext} 
+              className="px-10 py-4 bg-blue-600 text-white rounded-[22px] font-black shadow-xl hover:bg-blue-700 hover:-translate-y-0.5 transition-all active:scale-95"
+            >
               {currentIndex < dateList.length - 1 ? "다음 날짜 설정" : "최종 저장 완료"}
             </button>
           </div>

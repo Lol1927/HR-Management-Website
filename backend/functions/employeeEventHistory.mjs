@@ -25,14 +25,22 @@ export const handler = async (event) => {
 
     // 2. [추가] 새로운 이벤트 평가 추가 (기존 코드 활용)
     if (method === "POST") {
-      const { evaluation } = JSON.parse(event.body);
+      const body = JSON.parse(event.body);
+      
+      // 우선순위: URL 경로에 ID가 있으면 그것을 쓰고, 없으면 Body에서 가져옴
+      const targetId = employeeId || body.employeeId; 
+
+      if (!targetId) {
+        return response(400, { error: "employeeId가 누락되었습니다." });
+      }
+
       const params = {
         TableName: TABLE_NAME,
-        Key: { employeeId },
+        Key: { employeeId: targetId }, // 추출한 ID 적용
         UpdateExpression: "SET #h = list_append(if_not_exists(#h, :empty_list), :new_eval)",
         ExpressionAttributeNames: { "#h": "history" },
         ExpressionAttributeValues: {
-          ":new_eval": [evaluation],
+          ":new_eval": [body.evaluation],
           ":empty_list": []
         }
       };

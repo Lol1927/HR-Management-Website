@@ -1,24 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-// 분리한 컴포넌트들을 불러옵니다.
 import StaffManagement from './components/StaffManagement';
 import EventManager from './components/EventManager';
 import BulkEmployeeUpload from './components/BulkEmployeeUpload';
 import StaffEvaluation from './components/StaffEvaluation';
 import CategoryManager from './components/CategoryManager';
-// 아이콘 라이브러리
-import { Calendar, X, MapPin, ChevronDown,Languages,Users,Star,Settings } from 'lucide-react';
-
+import ApplicationManager from './components/ApplicationManager';
+import { Calendar, X, MapPin, ChevronDown, Languages, Users, Star, Settings, Palette, ClipboardList } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
+import { ThemeProvider, useTheme } from './ThemeContext';
+import { themeKeys } from './themes';
 
-
-function App() {
-  // --- 상태 관리 (State) ---
-  const [activeMenu, setActiveMenu] = useState('staff_management'); // 현재 메뉴 ('dashboard' 또는 'events')
-  const [employees, setEmployees] = useState([]); // 직원 목록 데이터
-  const [isModalOpen, setIsModalOpen] = useState(false); // 등록/수정 모달 열림 상태
-  const [editingId, setEditingId] = useState(null); // 수정 중인 직원의 ID
+function AppContent() {
+  const [activeMenu, setActiveMenu] = useState('staff_management');
+  const [employees, setEmployees] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const { t } = useTranslation();
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -26,45 +24,30 @@ function App() {
   const [cities, setCities] = useState([]);
   const [activeProvince, setActiveProvince] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // 신규/수정용 직원 데이터 양식
-  const [newEmployee, setNewEmployee] = useState({
-    name: '', contact: '', bankName: '', accountNumber: '', residentNumber: '', 
-    status: '활성', availableWork: [] 
-  });
+  const { theme, themeName, setTheme, themes } = useTheme();
 
-  
+  const [newEmployee, setNewEmployee] = useState({
+    name: '', contact: '', bankName: '', accountNumber: '', residentNumber: '',
+    status: '활성', availableWork: []
+  });
 
   const fetchRegions = async () => {
     try {
-      // 주(Province) 목록 가져오기
       const pRes = await axios.get(`${API_URL}/province`);
-      // 백엔드 필드명이 provinceName이므로 이를 추출합니다.
       setProvinces(pRes.data || []);
-
-      // 시(City) 목록 가져오기
       const cRes = await axios.get(`${API_URL}/city`);
       setCities(cRes.data || []);
-    } catch (err) {
-      console.error("지역 정보 로드 실패", err);
-    }
+    } catch (err) { console.error("지역 정보 로드 실패", err); }
   };
-    
 
   const toggleLanguage = () => {
-    // i18n.js에서 직접 가져온 인스턴스의 기능을 사용합니다.
     const nextLng = i18n.language.includes('ko') ? 'en' : 'ko';
     i18n.changeLanguage(nextLng);
   };
 
   const API_URL = process.env.REACT_APP_API_BASE_URL;
-  
-  // --- 옵션 데이터 ---
   const bankOptions = ["국민은행", "신한은행", "우리은행", "하나은행", "기업은행", "농협은행", "카카오뱅크", "토스뱅크", "새마을금고", "신용협동조합", "우체국"];
-  
-  
 
-  // --- API 호출 및 데이터 처리 ---
   const fetchEmployees = async () => {
     try {
       const res = await axios.get(`${API_URL}/employees`);
@@ -72,9 +55,8 @@ function App() {
     } catch (err) { console.error("로딩 실패", err); }
   };
 
-  useEffect(() => { fetchEmployees(); fetchRegions();}, []);
+  useEffect(() => { fetchEmployees(); fetchRegions(); }, []);
 
-  // 연락처/주민번호 포맷팅 함수 (모달 내부용)
   const formatPhoneNumber = (value) => {
     const num = value.replace(/[^\d]/g, "");
     if (num.length < 4) return num;
@@ -89,35 +71,23 @@ function App() {
     return `${num.slice(0, 6)}-${num.slice(6, 13)}`;
   };
 
-  // --- 이벤트 핸들러 ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
-
     try {
       setIsSubmitting(true);
-
       if (editingId) {
-        // 수정 시: 현재 주민번호(residentNumber)가 원본인지 마스킹(* 포함)인지에 따라 
-        // 백엔드에서 ID 변경 여부를 결정합니다.
         await axios.put(`${API_URL}/employees/${editingId}`, newEmployee);
       } else {
-        // 등록 시: 백엔드가 residentNumber를 해시하여 ID를 만드므로 
-        // 프론트엔드에서는 절대 ID를 직접 생성해서 보내면 안 됩니다.
-        // 현재 newEmployee 구조에 id가 없으므로 그대로 보냅니다.
         await axios.post(`${API_URL}/employees`, newEmployee);
       }
-      
       alert("성공적으로 저장되었습니다.");
       closeModal();
       fetchEmployees();
-    } catch (err) { 
-      // 백엔드에서 보낸 에러 메시지(예: "이미 등록된 주민번호입니다.") 출력
-      const errorMessage = err.response?.data?.message || "저장 실패";
-      alert(errorMessage); 
-      console.error("에러 상세:", err.response?.data);
+    } catch (err) {
+      alert(err.response?.data?.message || "저장 실패");
     } finally {
-      setIsSubmitting(false); 
+      setIsSubmitting(false);
     }
   };
 
@@ -136,10 +106,7 @@ function App() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("정말 삭제할까요?")) return;
-    try {
-      await axios.delete(`${API_URL}/employees/${id}`);
-      fetchEmployees();
-    } catch (err) { console.error(err); }
+    try { await axios.delete(`${API_URL}/employees/${id}`); fetchEmployees(); } catch (err) { console.error(err); }
   };
 
   const handleRegionChange = (region) => {
@@ -151,294 +118,220 @@ function App() {
     });
   };
 
+  const menuItems = [
+    { id: 'staff', icon: <Users size={18} />, label: t('sidebar.staff_management') },
+    { id: 'events', icon: <Calendar size={18} />, label: t('sidebar.events') },
+    { id: 'evaluation', icon: <Star size={18} />, label: t('sidebar.evaluation') || '인력 평가' },
+    { id: 'applications', icon: <ClipboardList size={18} />, label: '지원자 관리' },
+    { id: 'category', icon: <Settings size={18} />, label: '카테고리 관리' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
-      
-      {/* 1. 사이드바 메뉴 (Side Navigation) */}
-      <aside className="w-64 bg-slate-900 text-white p-6 hidden md:block shrink-0 shadow-2xl">
-        <div className="flex items-center justify-between mb-10 px-2">
-          <h1 className="text-2xl font-black text-blue-400 italic">HR MANAGE</h1>
-          
-          <button 
-            onClick={toggleLanguage} 
-            className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-400 hover:text-white flex items-center gap-1 group"
+    <div className={`min-h-screen ${theme.main} flex ${theme.text.primary}`} style={{ fontFamily: "'Inter', sans-serif" }}>
+
+      {/* 사이드바 */}
+      <aside className={`w-56 ${theme.sidebar} py-5 px-3 hidden md:flex md:flex-col shrink-0`}>
+        <div className="flex items-center justify-between mb-8 px-3">
+          <h1 className={`text-sm font-bold tracking-wide ${theme.sidebarTitle}`}>HR Manage</h1>
+          <button
+            onClick={toggleLanguage}
+            className={`p-1.5 rounded-md transition-colors ${theme.sidebarInactive}`}
             title={i18n.language === 'ko' ? 'Switch to English' : '한국어로 변경'}
           >
-            <Languages size={18} />
-            <span className="text-[10px] font-bold border border-slate-500 rounded px-1 group-hover:border-white">
-              {i18n.language === 'ko' ? 'A' : '가'}
-            </span>
+            <Languages size={14} />
           </button>
-
-
         </div>
 
-        <nav className="space-y-2">
-          <button 
-            onClick={() => setActiveMenu('staff')}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'staff' ? 'bg-green-600 text-white shadow-lg shadow-green-900/50' : 'text-slate-400 hover:bg-slate-800'}`}
-          >
-            <Users size={20} /> {t('sidebar.staff_management')}
-          </button>
-          <button 
-            onClick={() => setActiveMenu('events')}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'events' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-slate-800'}`}
-          >
-            <Calendar size={20} /> {t('sidebar.events')}
-          </button>
-
-          <button 
-            onClick={() => setActiveMenu('evaluation')}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'evaluation' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/50' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Star size={20} className={activeMenu === 'evaluation' ? "fill-white" : ""} /> 
-            {t('sidebar.evaluation') || '인력 평가'}
-          </button>
-
-          <button 
-            onClick={() => setActiveMenu('category')}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all ${activeMenu === 'category' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Settings size={20} /> 카테고리 관리
-          </button>
+        <nav className="space-y-0.5 flex-1">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveMenu(item.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                activeMenu === item.id ? theme.sidebarActive() : theme.sidebarInactive
+              }`}
+            >
+              {item.icon} {item.label}
+            </button>
+          ))}
         </nav>
+
+        {/* 테마 전환 */}
+        <div className={`mt-auto pt-4 border-t ${themeName === 'modernMinimal' ? 'border-gray-200' : 'border-white/10'}`}>
+          <div className="flex items-center gap-1.5 px-3 mb-2">
+            <Palette size={12} className={theme.text.muted} />
+            <span className={`text-[10px] font-medium uppercase tracking-wider ${theme.text.muted}`}>Theme</span>
+          </div>
+          <div className="flex gap-1.5 px-3">
+            {themeKeys.map((key) => (
+              <button
+                key={key}
+                onClick={() => setTheme(key)}
+                className={`flex-1 h-6 rounded-md transition-all ${themes[key].preview} ${
+                  themeName === key ? 'ring-2 ring-offset-1 ring-blue-500 scale-105' : 'opacity-50 hover:opacity-80'
+                }`}
+                title={themes[key].name}
+              />
+            ))}
+          </div>
+          <p className={`text-[10px] text-center mt-1.5 ${theme.text.muted}`}>{theme.name}</p>
+        </div>
       </aside>
 
-      {/* 2. 메인 콘텐츠 (Main View Area) */}
-      <main className="flex-1 p-10 overflow-y-auto">
-        {/* 현재 메뉴 상태에 따라 다른 컴포넌트를 보여줌 */}
+      {/* 메인 콘텐츠 */}
+      <main className="flex-1 p-6 overflow-y-auto">
         {activeMenu === 'staff' && (
-          <StaffManagement 
-            employees={employees} 
-            provinces={provinces}  // 추가
-            cities={cities}
-            setIsModalOpen={setIsModalOpen} 
-            openEditModal={openEditModal} 
-            handleDelete={handleDelete}
-            setSelectedEmployee={setSelectedEmployee}
-            setIsBulkModalOpen={setIsBulkModalOpen}
-            onRefresh={() => {
-              fetchEmployees(); // 직원 목록 새로고침
-              fetchRegions();   // 지역 목록 새로고침
-            }}
-          />
+          <StaffManagement employees={employees} provinces={provinces} cities={cities}
+            setIsModalOpen={setIsModalOpen} openEditModal={openEditModal} handleDelete={handleDelete}
+            setSelectedEmployee={setSelectedEmployee} setIsBulkModalOpen={setIsBulkModalOpen}
+            onRefresh={() => { fetchEmployees(); fetchRegions(); }} />
         )}
-
-        {/* 2. 행사 일정 메뉴일 때 */}
-        {activeMenu === 'events' && (
-          <EventManager />
-        )}
-
-        {/* 3. 인력 평가 메뉴일 때 (추가됨) */}
-        {activeMenu === 'evaluation' && (
-          <StaffEvaluation />
-        )}
-        {activeMenu === 'category' && (
-          <CategoryManager onRefresh={fetchRegions}/>
-        )}
+        {activeMenu === 'events' && <EventManager />}
+        {activeMenu === 'evaluation' && <StaffEvaluation />}
+        {activeMenu === 'applications' && <ApplicationManager />}
+        {activeMenu === 'category' && <CategoryManager onRefresh={fetchRegions} />}
       </main>
 
-      {/* 3. 공통 등록/수정 모달 (필요시 컴포넌트 분리 가능) */}
+      {/* 등록/수정 모달 */}
       {isModalOpen && (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-50">
-        {/* 모달 너비를 max-w-5xl로 키워서 옆으로 넓게 만듭니다 */}
-        <div className="bg-white rounded-[40px] p-10 w-full max-w-5xl shadow-2xl overflow-y-auto max-h-[90vh]">
-          
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-2xl font-black text-slate-800">{editingId ? "정보 수정" : "신규 등록"}</h3>
-            <button onClick={closeModal} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:bg-slate-200 transition-colors">
-              <X size={20} />
-            </button>
-          </div>
+        <div className={`fixed inset-0 ${theme.overlay} flex items-center justify-center p-4 z-50`}>
+          <div className={`${theme.modal} p-6 w-full max-w-4xl overflow-y-auto max-h-[90vh]`}>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className={`text-base font-semibold ${theme.text.primary}`}>{editingId ? "정보 수정" : "신규 등록"}</h3>
+              <button onClick={closeModal} className={`p-1.5 ${theme.btnSecondary} rounded-md`}><X size={16} /></button>
+            </div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            
-            {/* [왼쪽 영역] 인적 사항 입력 */}
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_name')}</label>
-                  <input required className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold" value={newEmployee.name} onChange={e => setNewEmployee({...newEmployee, name: e.target.value})} />
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`text-xs font-medium ${theme.text.secondary} mb-1 block`}>{t('modal.label_name')}</label>
+                    <input required className={`w-full px-3 py-2 text-sm ${theme.input}`} value={newEmployee.name} onChange={e => setNewEmployee({...newEmployee, name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className={`text-xs font-medium ${theme.text.secondary} mb-1 block`}>{t('modal.label_resident')}</label>
+                    <input required className={`w-full px-3 py-2 text-sm ${theme.input}`} placeholder="000000-0000000" value={newEmployee.residentNumber} onChange={e => setNewEmployee({...newEmployee, residentNumber: formatResidentNumber(e.target.value)})} maxLength={14} />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_resident')}</label>
-                  <input required className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold" placeholder="000000-0000000" value={newEmployee.residentNumber} onChange={e => setNewEmployee({...newEmployee, residentNumber: formatResidentNumber(e.target.value)})} maxLength={14} />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_contact')}</label>
-                  <input required className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold" placeholder="010-0000-0000" value={newEmployee.contact} onChange={e => setNewEmployee({...newEmployee, contact: formatPhoneNumber(e.target.value)})} maxLength={13} />
+                <div>
+                  <label className={`text-xs font-medium ${theme.text.secondary} mb-1 block`}>{t('modal.label_contact')}</label>
+                  <input required className={`w-full px-3 py-2 text-sm ${theme.input}`} placeholder="010-0000-0000" value={newEmployee.contact} onChange={e => setNewEmployee({...newEmployee, contact: formatPhoneNumber(e.target.value)})} maxLength={13} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-black text-slate-400 ml-2">{t('modal.label_bank')}</label>
+
+                <div>
+                  <label className={`text-xs font-medium ${theme.text.secondary} mb-1 block`}>{t('modal.label_bank')}</label>
                   <div className="flex gap-2">
                     <div className="w-[40%] relative">
-                      <select required className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold appearance-none pr-8 text-sm" value={newEmployee.bankName} onChange={e => setNewEmployee({...newEmployee, bankName: e.target.value})}>
+                      <select required className={`w-full px-3 py-2 text-sm ${theme.input} appearance-none pr-7`} value={newEmployee.bankName} onChange={e => setNewEmployee({...newEmployee, bankName: e.target.value})}>
                         <option value="">{t('modal.placeholder_bank_select')}</option>
                         {bankOptions.map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
-                      <ChevronDown size={16} className="absolute right-3 top-5 text-slate-400 pointer-events-none" />
+                      <ChevronDown size={14} className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${theme.text.muted} pointer-events-none`} />
                     </div>
-                    <input className="w-[60%] p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold text-sm" placeholder="계좌번호" value={newEmployee.accountNumber} onChange={e => setNewEmployee({...newEmployee, accountNumber: e.target.value})} />
+                    <input className={`w-[60%] px-3 py-2 text-sm ${theme.input}`} placeholder="계좌번호" value={newEmployee.accountNumber} onChange={e => setNewEmployee({...newEmployee, accountNumber: e.target.value})} />
                   </div>
                 </div>
+
+                <button type="submit" disabled={isSubmitting}
+                  className={`w-full py-2.5 text-sm font-medium mt-2 ${isSubmitting ? 'bg-gray-300 cursor-not-allowed text-gray-500 rounded-lg' : theme.btnPrimary}`}>
+                  {isSubmitting ? "처리 중..." : (editingId ? "수정 완료" : "저장하기")}
+                </button>
               </div>
 
-              <button 
-                type="submit" 
-                disabled={isSubmitting} // 4. 제출 중일 때 버튼 비활성화
-                className={`w-full py-5 text-white rounded-[24px] text-lg font-black transition-all mt-4 
-                  ${isSubmitting 
-                    ? 'bg-slate-400 cursor-not-allowed' // 제출 중일 때 회색 디자인
-                    : 'bg-blue-600 shadow-lg shadow-blue-200 hover:bg-blue-700'
-                  }`}
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    {/* 간단한 로딩 텍스트나 스피너를 넣으면 더 좋습니다 */}
-                    <span>처리 중...</span>
+              {/* 근무 지역 */}
+              <div className={`p-5 ${theme.card} flex flex-col min-h-[380px]`}>
+                <p className={`text-xs font-medium ${theme.text.secondary} mb-3 flex items-center gap-1.5`}>
+                  <MapPin size={13} /> {t('modal.label_region')} (최대 5개)
+                </p>
+                <div className="flex gap-3 flex-1 min-h-0">
+                  <div className={`w-1/3 ${theme.card} p-2 overflow-y-auto`}>
+                    <p className={`text-[10px] font-medium ${theme.text.muted} mb-2 text-center uppercase`}>도</p>
+                    <div className="space-y-0.5">
+                      {provinces.map((p, idx) => (
+                        <button key={idx} type="button" onClick={() => setActiveProvince(p.provinceName)}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                            activeProvince === p.provinceName ? theme.btnPrimary : `hover:bg-gray-50 ${theme.text.secondary}`
+                          }`}>
+                          {p.provinceName}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                ) : (
-                  editingId ? "수정 완료" : "저장하기"
-                )}
-              </button>
-            </div>
-
-            {/* [오른쪽 영역 - 파란색 원 위치] 근무 지역 선택 */}
-            <div className="p-8 bg-slate-50 rounded-[40px] border border-slate-100 flex flex-col h-full min-h-[450px]">
-              <p className="text-[11px] font-black text-slate-400 uppercase mb-4 flex items-center gap-2">
-                <MapPin size={14} /> {t('modal.label_region')} (최대 5개)
-              </p>
-
-              <div className="flex gap-4 flex-1 min-h-0">
-                {/* 도 선택 */}
-                <div className="w-1/3 bg-white rounded-3xl p-3 overflow-y-auto border border-slate-200 shadow-sm">
-                  <p className="text-[10px] font-black text-slate-300 mb-3 text-center uppercase">근무지역 도</p>
-                  <div className="space-y-1">
-                    {provinces.map((p, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setActiveProvince(p.provinceName)}
-                        className={`w-full text-left px-4 py-3 rounded-2xl text-xs font-black transition-all ${
-                          activeProvince === p.provinceName ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-50 text-slate-500'
-                        }`}
-                      >
-                        {p.provinceName}
-                      </button>
-                    ))}
+                  <div className={`flex-1 ${theme.card} p-2 overflow-y-auto`}>
+                    <p className={`text-[10px] font-medium ${theme.text.muted} mb-2 text-center uppercase`}>시</p>
+                    {!activeProvince ? (
+                      <div className={`h-full flex items-center justify-center text-xs ${theme.text.muted} text-center`}>도를 선택하세요</div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {cities.filter(c => c.provinceName === activeProvince).map((c, idx) => {
+                          const fullRegionName = `${c.provinceName} ${c.cityName}`;
+                          const isSelected = (newEmployee.availableWork || []).includes(fullRegionName);
+                          return (
+                            <button key={idx} type="button" onClick={() => handleRegionChange(fullRegionName)}
+                              className={`py-1.5 px-2 rounded-md text-xs font-medium border transition-all ${
+                                isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : `border-gray-200 ${theme.text.muted} hover:border-blue-300`
+                              }`}>
+                              {c.cityName.replace(`${activeProvince} `, "")}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {/* 시 선택 */}
-                <div className="flex-1 bg-white rounded-3xl p-3 overflow-y-auto border border-slate-200 shadow-sm">
-                  <p className="text-[10px] font-black text-slate-300 mb-3 text-center uppercase">근무지역 시</p>
-                  {!activeProvince ? (
-                    <div className="h-full flex items-center justify-center text-[11px] text-slate-300 font-bold text-center px-4 italic">
-                      왼쪽에서 '도'를 먼저 선택하세요
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {cities.filter(c => c.provinceName === activeProvince).map((c, idx) => {
-                        const fullRegionName = `${c.provinceName} ${c.cityName}`;
-                        const isSelected = (newEmployee.availableWork || []).includes(fullRegionName);
-                        const displayCityName = c.cityName.replace(`${activeProvince} `, "");
-                        return (
-                          
-
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => handleRegionChange(fullRegionName)}
-                            className={`py-3 px-2 rounded-2xl text-[11px] font-black border-2 transition-all ${
-                              isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-md' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'
-                            }`}
-                          >
-                            {displayCityName}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 선택된 지역 태그 */}
-              <div className="mt-4 flex flex-wrap gap-2 p-2 bg-white/50 rounded-2xl border border-dashed border-slate-200 min-h-[50px]">
-                {(newEmployee.availableWork || []).length === 0 && <span className="text-[10px] text-slate-300 m-auto">선택된 지역이 없습니다.</span>}
-                
+                <div className={`mt-3 flex flex-wrap gap-1.5 p-2 rounded-lg border border-dashed ${theme.divider} min-h-[36px]`}>
+                  {(newEmployee.availableWork || []).length === 0 && <span className={`text-[10px] ${theme.text.muted} m-auto`}>선택된 지역이 없습니다.</span>}
                   {(newEmployee.availableWork || []).map((region) => {
-                    // 1. 우선 " 전체" 글자를 제거
-                    let displayRegion = region.replace(" 전체", "").trim();
-
-                    // 2. "서울특별시 서울특별시" 처럼 중복된 경우 하나를 제거
-                    // 공백으로 나눈 뒤, 앞뒤 단어가 같으면 하나만 남김
-                    const parts = displayRegion.split(" ");
-                    if (parts.length === 2 && parts[0] === parts[1]) {
-                      displayRegion = parts[0]; 
-                    }
-
+                    let d = region.replace(" 전체", "").trim();
+                    const p = d.split(" ");
+                    if (p.length === 2 && p[0] === p[1]) d = p[0];
                     return (
-                      <span 
-                        key={region} 
-                        className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black flex items-center gap-1 border border-blue-100"
-                      >
-                        {displayRegion}
-                        <X 
-                          size={12} 
-                          className="cursor-pointer hover:text-red-500" 
-                          onClick={() => handleRegionChange(region)} 
-                        />
+                      <span key={region} className={`px-2 py-0.5 ${theme.badge.info} rounded text-[11px] font-medium flex items-center gap-1`}>
+                        {d}
+                        <X size={10} className="cursor-pointer hover:text-red-500" onClick={() => handleRegionChange(region)} />
                       </span>
                     );
                   })}
+                </div>
               </div>
-            </div>
-
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
-    )}
+      )}
+
+      {/* 직원 상세 */}
       {selectedEmployee && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[60]">
-          <div className="bg-white rounded-[40px] p-10 w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
-            <button 
-              onClick={() => setSelectedEmployee(null)} 
-              className="absolute right-6 top-6 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <X size={20} />
+        <div className={`fixed inset-0 ${theme.overlay} flex items-center justify-center p-4 z-[60]`}>
+          <div className={`${theme.modal} p-6 w-full max-w-sm relative`}>
+            <button onClick={() => setSelectedEmployee(null)} className={`absolute right-4 top-4 p-1 ${theme.btnSecondary} rounded-md`}>
+              <X size={14} />
             </button>
-            
-            <div className="flex flex-col items-center mb-8">
-              <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-white text-4xl font-black mb-4 shadow-xl shadow-blue-100">
+            <div className="flex flex-col items-center mb-5">
+              <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white text-lg font-semibold mb-3">
                 {selectedEmployee.name?.charAt(0)}
               </div>
-              <h3 className="text-3xl font-black text-slate-800">{selectedEmployee.name}</h3>
-              <p className="text-blue-600 font-bold">
-                {selectedEmployee.status === '활성' ? t('common.status_active') : t('common.status_inactive')} {t('detail.member_suffix')}
-              </p>
+              <h3 className={`text-lg font-semibold ${theme.text.primary}`}>{selectedEmployee.name}</h3>
+              <span className={`text-xs font-medium ${selectedEmployee.status === '활성' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {selectedEmployee.status === '활성' ? t('common.status_active') : t('common.status_inactive')}
+              </span>
             </div>
-
-            <div className="space-y-4 bg-slate-50 p-6 rounded-[30px] border border-slate-100">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                <span className="text-xs font-black text-slate-400 uppercase">{t('detail.label_contact')}</span>
-                <span className="font-bold text-slate-700">{selectedEmployee.contact}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                <span className="text-xs font-black text-slate-400 uppercase">{t('detail.label_resident')}</span>
-                <span className="font-bold text-slate-700">{selectedEmployee.residentNumber}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                <span className="text-xs font-black text-slate-400 uppercase">{t('detail.label_account')}</span>
-                <span className="font-bold text-slate-700">{selectedEmployee.bankName} {selectedEmployee.accountNumber}</span>
-              </div>
-              <div className="pt-2">
-                <span className="text-xs font-black text-slate-400 uppercase block mb-2">{t('detail.label_region')}</span>
+            <div className={`space-y-3 ${theme.card} p-4 text-sm`}>
+              {[
+                [t('detail.label_contact'), selectedEmployee.contact],
+                [t('detail.label_resident'), selectedEmployee.residentNumber],
+                [t('detail.label_account'), `${selectedEmployee.bankName} ${selectedEmployee.accountNumber}`],
+              ].map(([label, val]) => (
+                <div key={label} className={`flex justify-between items-center border-b ${theme.divider} pb-2`}>
+                  <span className={`text-xs ${theme.text.muted}`}>{label}</span>
+                  <span className={`font-medium ${theme.text.primary}`}>{val}</span>
+                </div>
+              ))}
+              <div className="pt-1">
+                <span className={`text-xs ${theme.text.muted} block mb-1.5`}>{t('detail.label_region')}</span>
                 <div className="flex flex-wrap gap-1">
-                  {selectedEmployee.availableWork?.map(region => (
-                    <span key={region} className="px-2 py-1 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-600">
-                      {region}
-                    </span>
+                  {selectedEmployee.availableWork?.map(r => (
+                    <span key={r} className={`px-2 py-0.5 ${theme.badge.info} rounded text-[11px] font-medium`}>{r}</span>
                   ))}
                 </div>
               </div>
@@ -447,17 +340,15 @@ function App() {
         </div>
       )}
 
-      {/* 일괄 등록 모달 조건부 렌더링 */}
       {isBulkModalOpen && (
-        <BulkEmployeeUpload 
-          employees={employees}
-          onClose={() => setIsBulkModalOpen(false)} 
-          onRefresh={fetchEmployees}
-          API_URL={API_URL}
-        />
+        <BulkEmployeeUpload employees={employees} onClose={() => setIsBulkModalOpen(false)} onRefresh={fetchEmployees} API_URL={API_URL} />
       )}
     </div>
   );
+}
+
+function App() {
+  return <ThemeProvider><AppContent /></ThemeProvider>;
 }
 
 export default App;

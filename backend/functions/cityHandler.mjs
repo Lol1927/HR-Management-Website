@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, PutCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, PutCommand, DeleteCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -31,32 +31,32 @@ export const handler = async (event) => {
       await docClient.send(new PutCommand({
         TableName,
         Item: {
+          provinceName: body.provinceName,
           cityName: body.cityName,
-          provinceName: body.provinceName, // 연결된 주 이름 저장
           createdAt: new Date().toISOString()
-        },
-        ConditionExpression: "attribute_not_exists(cityName)"
+        }
       }));
-      
+
       return { statusCode: 201, headers, body: JSON.stringify({ message: "시 등록 성공" }) };
     }
 
-    // 3. 시 삭제
+    // 3. 시 삭제 (복합키: provinceName + cityName)
     if (method === "DELETE") {
+      const provinceName = decodeURIComponent(event.pathParameters.provinceName);
       const cityName = decodeURIComponent(event.pathParameters.cityName);
       await docClient.send(new DeleteCommand({
         TableName,
-        Key: { cityName }
+        Key: { provinceName, cityName }
       }));
       return { statusCode: 200, headers, body: JSON.stringify({ message: "시 삭제 성공" }) };
     }
 
   } catch (err) {
     const isDuplicate = err.name === "ConditionalCheckFailedException";
-    return { 
-      statusCode: isDuplicate ? 200 : 500, 
-      headers, 
-      body: JSON.stringify({ error: isDuplicate ? "이미 존재하는 도시입니다." : err.message }) 
+    return {
+      statusCode: isDuplicate ? 200 : 500,
+      headers,
+      body: JSON.stringify({ error: isDuplicate ? "이미 존재하는 도시입니다." : err.message })
     };
   }
 };

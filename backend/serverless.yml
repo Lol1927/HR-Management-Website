@@ -149,7 +149,7 @@ functions:
           method: post
           cors: true
       - http:
-          path: city/{cityName}
+          path: city/delete/{provinceName}/{cityName}
           method: delete
           cors: true
 
@@ -229,18 +229,8 @@ resources:
             KeyType: HASH # 파티션 키
         BillingMode: PAY_PER_REQUEST
 
-    # 2. 시(City) 테이블
-    CityTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: ${self:service}-cities-${sls:stage}
-        AttributeDefinitions:
-          - AttributeName: cityName
-            AttributeType: S
-        KeySchema:
-          - AttributeName: cityName
-            KeyType: HASH # 파티션 키
-        BillingMode: PAY_PER_REQUEST
+    # 2. 시(City) 테이블은 수동 관리 (복합키: provinceName HASH + cityName RANGE)
+    # 테이블명: hr-management-api-cities-dev
 
     # 히스토리 테이블 생성
     HistoryTable:

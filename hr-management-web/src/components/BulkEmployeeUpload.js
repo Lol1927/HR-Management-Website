@@ -1,292 +1,153 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
-import { X, Download, FileUp, Save, Trash2 ,Loader2} from 'lucide-react';
+import { X, Download, FileUp, Save, Trash2, Loader2 } from 'lucide-react';
+import { useTheme } from '../ThemeContext';
 
-function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
-  const [data, setData] = useState([]); // 엑셀에서 추출한 데이터\
+function BulkEmployeeUpload({ onClose, onRefresh, API_URL, employees }) {
+  const [data, setData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [stats, setStats] = useState({
-    total: 0,       // 엑셀 전체 행 수
-    duplicates: 0,  // 중복으로 제외된 수
-    needReview: 0,  // 데이터 누락/오류로 검토가 필요한 수
-    final: 0        // 실제 등록 가능 수
-  });
+  const [stats, setStats] = useState({ total: 0, duplicates: 0, needReview: 0, final: 0 });
+  const { theme } = useTheme();
 
-  // 1. 엑셀 형식 다운로드 (사용자가 올린 양식 기준)
-  // 1. 엑셀 형식 다운로드 수정
   const downloadTemplate = () => {
-    const ws = XLSX.utils.json_to_sheet([
-      { 
-        "이름": "홍길동", 
-        "연락처": "010-1234-5678", 
-        "은행": "신한은행", 
-        "계좌번호": "110-123-456789", 
-        "주민등록번호": "900101-1234567", 
-        // 🔥 도움말처럼 샘플을 넣어줍니다.
-        "주": "경기도",
-        "시": "수원시" 
-      }
-    ]);
-    
-    // 열 너비 조절 (사용자 편의성)
-    ws['!cols'] = [
-      { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 30 }
-    ];
-
+    const ws = XLSX.utils.json_to_sheet([{
+      "이름": "홍길동", "연락처": "010-1234-5678", "은행": "신한은행",
+      "계좌번호": "110-123-456789", "주민등록번호": "900101-1234567", "주": "경기도", "시": "수원시"
+    }]);
+    ws['!cols'] = [{ wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 30 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "양식");
     XLSX.writeFile(wb, "직원_등록_양식.xlsx");
   };
 
- const handleFileUpload = (e) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (evt) => {
-      const bstr = evt.target.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wb = XLSX.read(evt.target.result, { type: 'binary' });
       const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-
-      if (!json || json.length === 0) {
-        alert("데이터가 없습니다.");
-        return;
-      }
-
+      if (!json || json.length === 0) { alert("데이터가 없습니다."); return; }
       const dbList = employees || [];
       const seenInFile = new Set();
-      
-      let duplicateCount = 0;
-      let reviewCount = 0;
-      
+      let duplicateCount = 0, reviewCount = 0;
       const processed = json.map((row, idx) => {
         const name = String(row["이름"] || "").trim();
         const contact = String(row["연락처"] || "").trim();
         const resNumRaw = String(row["주민등록번호"] || "").trim();
         const cleanResNum = resNumRaw.replace(/[^0-9]/g, "");
-
-        // 1. 중복 체크 (DB 대조 + 파일 내 중복)
-        const isDuplicateInDB = dbList.some(emp => 
-          emp.residentNumber?.replace(/[^0-9]/g, "") === cleanResNum
-        );
-        const isDuplicateInFile = seenInFile.has(cleanResNum);
-        
-        const isDuplicate = cleanResNum !== "" && (isDuplicateInDB || isDuplicateInFile);
+        const isDuplicate = cleanResNum !== "" && (dbList.some(emp => emp.residentNumber?.replace(/[^0-9]/g, "") === cleanResNum) || seenInFile.has(cleanResNum));
         if (cleanResNum !== "") seenInFile.add(cleanResNum);
-
-        // 2. 검토 필요 체크 (이름/연락처 누락 또는 주민번호 형식 이상)
-        const isInvalid = !name || !contact || cleanResNum.length < 13;
-
-        return {
-          ...row,
-          name,
-          contact,
-          residentNumber: resNumRaw,
-          isDuplicate,
-          isInvalid,
-          tempId: idx
-        };
+        return { ...row, name, contact, residentNumber: resNumRaw, isDuplicate, isInvalid: !name || !contact || cleanResNum.length < 13, tempId: idx };
       });
-
-      // 최종 리스트: 중복은 완전히 제외, 데이터 오류(isInvalid)는 목록엔 두되 경고 표시
-      const filteredData = processed.filter(item => {
-        if (item.isDuplicate) {
-          duplicateCount++;
-          return false;
-        }
-        if (item.isInvalid) {
-          reviewCount++;
-        }
-        return true;
-      });
-
-      setStats({
-        total: json.length,
-        duplicates: duplicateCount,
-        needReview: reviewCount,
-        final: filteredData.length
-      });
-
+      const filteredData = processed.filter(item => { if (item.isDuplicate) { duplicateCount++; return false; } if (item.isInvalid) reviewCount++; return true; });
+      setStats({ total: json.length, duplicates: duplicateCount, needReview: reviewCount, final: filteredData.length });
       setData(filteredData);
     };
     reader.readAsBinaryString(file);
   };
 
-  // 3. 임시 데이터 수정 로직
-  const handleEdit = (index, field, value) => {
-    const newData = [...data];
-    newData[index][field] = value;
-    setData(newData);
-  };
-
- const handleSaveAll = async () => {
+  const handleSaveAll = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
-
-    // 1. 전송 데이터 정제 (isDuplicate 등 불필요한 필드 제거)
-    const newPeople = data.map(({ tempId, isDuplicate, ...rest }) => ({
-      ...rest,
-      status: "활성" // 기본 상태값 부여
-    }));
-
+    const newPeople = data.map(({ tempId, isDuplicate, ...rest }) => ({ ...rest, status: "활성" }));
     try {
-      // 2. 지역 데이터 추출 및 중복 제거 (Map 활용)
       const regionMap = new Map();
-      newPeople.forEach(emp => {
-        emp.availableWork.forEach(loc => {
-          const parts = loc.split(" ");
-          const p = parts[0];
-          const c = parts.slice(1).join(" ") || "전체"; 
-          if (p) {
-            if (!regionMap.has(p)) regionMap.set(p, new Set());
-            regionMap.get(p).add(c);
-          }
-        });
-      });
-
-      // 3. 지역(주/시) 순차 등록
-      // 에러가 나더라도(이미 존재함 등) 중단되지 않도록 각각 try-catch 처리
+      newPeople.forEach(emp => { emp.availableWork.forEach(loc => { const parts = loc.split(" "); const p = parts[0]; const c = parts.slice(1).join(" ") || "전체"; if (p) { if (!regionMap.has(p)) regionMap.set(p, new Set()); regionMap.get(p).add(c); } }); });
       for (const [provinceName, cities] of regionMap.entries()) {
-        try {
-          await axios.post(`${API_URL}/province`, { provinceName });
-        } catch (e) { /* 이미 있는 주일 경우 스킵 */ }
-
-        for (const cityName of cities) {
-          try {
-            // DB 저장 형식인 "경기도 수원시" 형태로 전송
-            const fullCityName = cityName === "전체" ? `${provinceName} 전체` : `${provinceName} ${cityName}`;
-            await axios.post(`${API_URL}/city`, { provinceName, cityName: fullCityName });
-          } catch (e) { /* 이미 있는 시일 경우 스킵 */ }
-        }
+        try { await axios.post(`${API_URL}/province`, { provinceName }); } catch (e) {}
+        for (const cityName of cities) { try { const fullCityName = cityName === "전체" ? `${provinceName} 전체` : `${provinceName} ${cityName}`; await axios.post(`${API_URL}/city`, { provinceName, cityName: fullCityName }); } catch (e) {} }
       }
-
-      // 4. 직원 정보 순차 등록 (서버 부하 방지)
       let successCount = 0;
-      for (const emp of newPeople) {
-        try {
-          await axios.post(`${API_URL}/employees`, emp);
-          successCount++;
-        } catch (err) {
-          console.error(`${emp.name} 등록 실패:`, err);
-        }
-      }
-
+      for (const emp of newPeople) { try { await axios.post(`${API_URL}/employees`, emp); successCount++; } catch (err) { console.error(`${emp.name} 등록 실패:`, err); } }
       alert(`${successCount}명의 직원이 성공적으로 등록되었습니다.`);
-      if (typeof onRefresh === 'function') onRefresh(); 
-      onClose();   
-
-    } catch (err) {
-      console.error("일괄 등록 중 치명적 에러:", err);
-      alert("데이터 처리 중 오류가 발생했습니다.");
-    } finally {
-      setIsSubmitting(false);
-    }
+      if (typeof onRefresh === 'function') onRefresh(); onClose();
+    } catch (err) { alert("데이터 처리 중 오류가 발생했습니다."); }
+    finally { setIsSubmitting(false); }
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[100]">
-      <div className="bg-white rounded-[40px] p-8 w-full max-w-6xl shadow-2xl max-h-[95vh] flex flex-col">
-        {/* 1. 헤더 영역 */}
-        <div className="flex justify-between items-center mb-6">
+    <div className={`fixed inset-0 ${theme.overlay} flex items-center justify-center p-4 z-[100]`}>
+      <div className={`${theme.modal} p-5 w-full max-w-5xl max-h-[90vh] flex flex-col`}>
+        {/* 헤더 */}
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <h2 className="text-2xl font-black text-slate-800">인력 일괄 등록</h2>
-            <p className="text-slate-400 font-bold text-sm">엑셀로 인력들을 일관 등록할 수 있습니다.</p>
+            <h2 className={`text-base font-semibold ${theme.text.primary}`}>인력 일괄 등록</h2>
+            <p className={`${theme.text.muted} text-xs`}>엑셀로 인력들을 일괄 등록할 수 있습니다.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <button onClick={downloadTemplate} className="flex items-center gap-2 text-blue-600 font-black hover:bg-blue-50 px-4 py-2 rounded-xl transition-all">
-              <Download size={20} /> 엑셀 형식 다운로드
+          <div className="flex items-center gap-2">
+            <button onClick={downloadTemplate} className="flex items-center gap-1.5 text-blue-600 text-xs font-medium hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all">
+              <Download size={14} /> 양식 다운로드
             </button>
-            <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600"><X size={24} /></button>
+            <button onClick={onClose} className={`p-1.5 ${theme.btnSecondary} rounded-md`}><X size={16} /></button>
           </div>
         </div>
 
         {data.length === 0 ? (
-          /* 파일 업로드 전 */
-          <div className="flex-1 border-4 border-dashed border-slate-100 rounded-[32px] flex flex-col items-center justify-center gap-4 bg-slate-50/50">
-            <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-inner">
-              <FileUp size={40} />
+          <div className={`flex-1 border-2 border-dashed ${theme.divider} rounded-xl flex flex-col items-center justify-center gap-3`}>
+            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+              <FileUp size={24} />
             </div>
-            <label className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black cursor-pointer shadow-lg shadow-blue-200 hover:scale-105 transition-transform">
+            <label className={`${theme.btnPrimary} px-5 py-2 text-xs font-medium cursor-pointer`}>
               엑셀 파일 등록
               <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
             </label>
           </div>
         ) : (
-          /* 파일 업로드 후: 데이터 검토 영역 */
           <>
-            {/* 2. 요약 통계 바 (수백 명 등록 시 가시성 핵심) */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-[24px]">
-                <p className="text-[11px] font-black text-blue-400 uppercase tracking-wider mb-1">총 등록 예정</p>
-                <p className="text-2xl font-black text-blue-900">{data.length}<span className="text-sm ml-1">명</span></p>
+            {/* 통계 */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className={`${theme.statCard('blue')} p-3 rounded-lg`}>
+                <p className="text-[10px] font-medium text-blue-500 uppercase mb-0.5">등록 예정</p>
+                <p className="text-lg font-semibold text-blue-900">{data.length}<span className="text-xs ml-0.5">명</span></p>
               </div>
-              <div className="bg-slate-50 border border-slate-100 p-5 rounded-[24px]">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">정상 데이터</p>
-                <p className="text-2xl font-black text-slate-700">{data.length}<span className="text-sm ml-1">건</span></p>
+              <div className={`${theme.statCard('gray')} p-3 rounded-lg`}>
+                <p className={`text-[10px] font-medium ${theme.text.muted} uppercase mb-0.5`}>정상</p>
+                <p className={`text-lg font-semibold ${theme.text.primary}`}>{data.length}<span className="text-xs ml-0.5">건</span></p>
               </div>
-              <div className="bg-amber-50 border border-amber-100 p-5 rounded-[24px]">
-                <p className="text-[11px] font-black text-amber-500 uppercase tracking-wider mb-1">검토 필요</p>
-                <p className="text-2xl font-black text-amber-700">0<span className="text-sm ml-1">건</span></p>
+              <div className={`${theme.statCard('amber')} p-3 rounded-lg`}>
+                <p className="text-[10px] font-medium text-amber-500 uppercase mb-0.5">검토 필요</p>
+                <p className="text-lg font-semibold text-amber-700">0<span className="text-xs ml-0.5">건</span></p>
               </div>
             </div>
 
-            {/* 3. 데이터 테이블 영역 (고정 헤더 및 스크롤) */}
-            <div className="flex-1 overflow-auto bg-slate-50/50 rounded-[32px] border border-slate-100 relative">
-              <table className="w-full text-left border-separate border-spacing-y-2 px-4">
-                <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-20 shadow-sm">
-                  <tr className="text-slate-400 text-[11px] font-black uppercase tracking-wider">
-                    <th className="px-6 py-4">이름</th>
-                    <th className="px-6 py-4">연락처</th>
-                    <th className="px-6 py-4">은행/계좌</th>
-                    <th className="px-6 py-4">주민등록번호</th>
-                    <th className="px-6 py-4">근무지역</th> {/* 도/시 결합 출력 */}
-                    <th className="px-6 py-4 text-center">관리</th>
+            {/* 테이블 */}
+            <div className={`flex-1 overflow-auto ${theme.table}`}>
+              <table className="w-full text-left">
+                <thead className={`sticky top-0 ${theme.tableHeader} z-10`}>
+                  <tr className="text-[11px] font-medium uppercase tracking-wider">
+                    <th className="px-3 py-2.5">이름</th>
+                    <th className="px-3 py-2.5">연락처</th>
+                    <th className="px-3 py-2.5">은행/계좌</th>
+                    <th className="px-3 py-2.5">주민등록번호</th>
+                    <th className="px-3 py-2.5">근무지역</th>
+                    <th className="px-3 py-2.5 text-center w-14">관리</th>
                   </tr>
                 </thead>
-                <tbody className="before:content-[''] before:block before:h-2">
+                <tbody className={`divide-y ${theme.divider}`}>
                   {data.map((item, idx) => (
-                    <tr key={item.tempId || idx} className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all group">
-                      <td className="px-6 py-4 font-bold text-slate-700 border-l-4 border-transparent group-hover:border-blue-500 rounded-l-2xl">
-                        {item.name}
+                    <tr key={item.tempId || idx} className={`${theme.tableRow} group`}>
+                      <td className={`px-3 py-2.5 text-sm font-medium ${theme.text.primary}`}>{item.name}</td>
+                      <td className={`px-3 py-2.5 text-xs ${theme.text.secondary}`}>{item.contact}</td>
+                      <td className="px-3 py-2.5">
+                        <span className="text-blue-600 text-[11px] font-medium">{item.bankName}</span>
+                        <span className={`${theme.text.muted} text-[11px] ml-1`}>{item.accountNumber}</span>
                       </td>
-                      <td className="px-6 py-4 text-slate-600 font-medium text-sm">{item.contact}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-blue-600 font-black text-[11px]">{item.bankName}</span>
-                          <span className="text-slate-400 font-mono text-xs">{item.accountNumber}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-mono text-slate-500 text-xs tracking-tighter">
-                        {item.residentNumber}
-                      </td>
-                      {/* 🔥 근무지역 출력 로직 수정 */}
-                      <td className="px-6 py-4">
+                      <td className={`px-3 py-2.5 font-mono ${theme.text.secondary} text-xs`}>{item.residentNumber}</td>
+                      <td className="px-3 py-2.5">
                         <div className="flex flex-wrap gap-1">
                           {Array.isArray(item.availableWork) && item.availableWork.length > 0 ? (
-                            item.availableWork.slice(0, 3).map((loc, i) => (
-                              <span key={i} className="bg-blue-50 text-blue-600 text-[11px] px-2 py-1 rounded-md font-bold border border-blue-100">
-                                {/* ✅ loc 자체가 문자열이므로 .province 같은 속성 없이 바로 출력합니다 */}
-                                {loc}
-                              </span>
+                            item.availableWork.slice(0, 2).map((loc, i) => (
+                              <span key={i} className={`${theme.badge.info} text-[10px] px-1.5 py-0.5 rounded font-medium`}>{loc}</span>
                             ))
-                          ) : (
-                            <span className="text-slate-300 text-xs">-</span>
-                          )}
-                          {item.availableWork?.length > 3 && (
-                            <span className="text-[10px] text-slate-400 font-bold self-center ml-1">
-                              +{item.availableWork.length - 3}
-                            </span>
-                          )}
+                          ) : <span className={`${theme.text.muted} text-xs`}>-</span>}
+                          {item.availableWork?.length > 2 && <span className={`text-[10px] ${theme.text.muted}`}>+{item.availableWork.length - 2}</span>}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center rounded-r-2xl">
-                        <button 
-                          onClick={() => setData(data.filter((_, i) => i !== idx))}
-                          className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                      <td className="px-3 py-2.5 text-center">
+                        <button onClick={() => setData(data.filter((_, i) => i !== idx))}
+                          className="p-1 text-gray-300 hover:text-rose-500 rounded transition-all"><Trash2 size={13} /></button>
                       </td>
                     </tr>
                   ))}
@@ -296,27 +157,14 @@ function BulkEmployeeUpload({ onClose, onRefresh, API_URL,employees }) {
           </>
         )}
 
-        {/* 4. 하단 액션 바 */}
         {data.length > 0 && (
-          <div className="mt-6 flex gap-4 items-center p-4 bg-slate-900 rounded-[28px] shadow-2xl shadow-slate-200">
-             <button 
-               onClick={handleSaveAll} 
-               disabled={isSubmitting} // 제출 중일 때 클릭 금지
-               className={`flex-1 p-4 rounded-xl font-black text-white transition-all flex items-center justify-center gap-3 ${
-                 isSubmitting ? 'bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 shadow-lg'
-               }`}
-             >
-               {isSubmitting ? (
-                 <>
-                   <Loader2 size={20} className="animate-spin" /> 
-                   직원 등록 중입니다...
-                 </>
-               ) : (
-                 <>
-                   <Save size={20} /> {data.length}명의 직원 등록 완료하기
-                 </>
-               )}
-             </button>
+          <div className="mt-4">
+            <button onClick={handleSaveAll} disabled={isSubmitting}
+              className={`w-full py-2.5 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 ${
+                isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              }`}>
+              {isSubmitting ? (<><Loader2 size={16} className="animate-spin" /> 등록 중...</>) : (<><Save size={16} /> {data.length}명 등록 완료</>)}
+            </button>
           </div>
         )}
       </div>

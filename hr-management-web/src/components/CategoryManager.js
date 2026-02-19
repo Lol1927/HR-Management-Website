@@ -1,64 +1,54 @@
-// src/components/CategoryManager.js
 import React, { useState } from 'react';
 import { MapPin, Tag, UserSquare } from 'lucide-react';
 import WorkplaceManagement from './WorkplaceManagement';
+import { useTheme } from '../ThemeContext';
 
 function CategoryManager({ onRefresh }) {
-  // 현재 어떤 카테고리 탭을 보고 있는지 관리
   const [activeTab, setActiveTab] = useState('event_types');
   const MY_API_URL = process.env.REACT_APP_API_BASE_URL;
+  const { theme } = useTheme();
 
   const tabs = [
-    { id: 'event_types', label: '이벤트 종류 관리', icon: <Tag size={18} /> },
-    { id: 'workplaces', label: '근무지역 관리', icon: <MapPin size={18} /> },
-    { id: 'positions', label: '포지션 관리', icon: <UserSquare size={18} /> },
+    { id: 'event_types', label: '이벤트 종류', icon: <Tag size={14} /> },
+    { id: 'workplaces', label: '근무지역', icon: <MapPin size={14} /> },
+    { id: 'positions', label: '포지션', icon: <UserSquare size={14} /> },
   ];
 
   return (
-    <div className="animate-in fade-in duration-500">
-      <header className="mb-10">
-        <h2 className="text-3xl font-black tracking-tight text-slate-800">카테고리 관리</h2>
-        <p className="text-slate-400 font-medium mt-1">시스템에서 사용하는 기초 데이터를 관리합니다.</p>
-      </header>
+    <div>
+      <div className="mb-5">
+        <h2 className={`text-lg font-semibold ${theme.text.primary}`}>카테고리 관리</h2>
+        <p className={`text-xs ${theme.text.muted} mt-0.5`}>시스템에서 사용하는 기초 데이터를 관리합니다.</p>
+      </div>
 
-      {/* 탭 메뉴 */}
-      <div className="flex gap-2 mb-8 bg-slate-100 p-1.5 rounded-[22px] w-fit">
+      <div className={`flex gap-1 mb-4 ${theme.tabContainer} w-fit`}>
         {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-[18px] font-bold transition-all ${
-              activeTab === tab.id
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              activeTab === tab.id ? theme.tabActive : theme.tabInactive
+            }`}>
+            {tab.icon} {tab.label}
           </button>
         ))}
       </div>
 
-      {/* 탭 콘텐츠 영역 */}
-      <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
+      <div className={`${theme.card} p-5`}>
         {activeTab === 'event_types' && (
           <div>
-            <h3 className="text-xl font-bold mb-4">이벤트 종류 관리</h3>
-            <p className="text-slate-500 italic">이벤트 종류(예: 전시회, 콘서트 등)를 추가하고 수정하는 기능이 들어갈 자리입니다.</p>
+            <h3 className={`text-sm font-semibold mb-2 ${theme.text.primary}`}>이벤트 종류 관리</h3>
+            <p className={`${theme.text.muted} text-xs`}>이벤트 종류(예: 전시회, 콘서트 등)를 추가하고 수정하는 기능이 들어갈 자리입니다.</p>
           </div>
         )}
-
         {activeTab === 'workplaces' && (
           <div>
-            <h3 className="text-xl font-bold mb-4">근무지역 관리</h3>
+            <h3 className={`text-sm font-semibold mb-2 ${theme.text.primary}`}>근무지역 관리</h3>
             <WorkplaceManagement API_URL={MY_API_URL}/>
           </div>
         )}
-
         {activeTab === 'positions' && (
           <div>
-            <h3 className="text-xl font-bold mb-4">포지션 관리</h3>
-            <p className="text-slate-500 italic">근무 포지션(예: 팀장, 일반 등)을 관리하는 기능이 들어갈 자리입니다.</p>
+            <h3 className={`text-sm font-semibold mb-2 ${theme.text.primary}`}>포지션 관리</h3>
+            <p className={`${theme.text.muted} text-xs`}>근무 포지션(예: 팀장, 일반 등)을 관리하는 기능이 들어갈 자리입니다.</p>
           </div>
         )}
       </div>

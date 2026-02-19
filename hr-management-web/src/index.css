@@ -1,3 +1,149 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+}
+
+/* 테마 전환 트랜지션 */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input, textarea, select {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* 글래스모피즘 배경 */
+.glass-bg {
+  background: linear-gradient(135deg, #eef2ff 0%, #f0ebff 50%, #fdf2f8 100%);
+  min-height: 100vh;
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* FullCalendar 커스텀 스타일 */
+.fc {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 12px !important;
+}
+
+/* 툴바 (월 네비게이션) */
+.fc .fc-toolbar {
+  margin-bottom: 12px !important;
+  gap: 8px;
+}
+.fc .fc-toolbar-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #1e293b;
+}
+.fc .fc-button {
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  text-transform: capitalize !important;
+}
+.fc .fc-button:hover {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+.fc .fc-button-active,
+.fc .fc-button:active {
+  background: #3b82f6 !important;
+  color: #fff !important;
+  border-color: #3b82f6 !important;
+}
+
+/* 요일 헤더 */
+.fc .fc-col-header-cell {
+  padding: 6px 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+.fc .fc-col-header-cell-cushion {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #94a3b8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  text-decoration: none !important;
+}
+
+/* 날짜 셀 */
+.fc .fc-daygrid-day {
+  border-color: #f1f5f9 !important;
+}
+.fc .fc-daygrid-day-number {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #64748b !important;
+  padding: 4px 6px !important;
+  text-decoration: none !important;
+}
+.fc .fc-day-today {
+  background: #eff6ff !important;
+}
+.fc .fc-day-today .fc-daygrid-day-number {
+  color: #2563eb !important;
+  font-weight: 700 !important;
+}
+
+/* 이벤트 */
+.fc .fc-event {
+  border-radius: 4px !important;
+  border: none !important;
+  padding: 1px 4px !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  cursor: pointer !important;
+}
+.fc .fc-event:hover {
+  opacity: 0.85;
+}
+.fc .fc-daygrid-event-dot {
+  display: none !important;
+}
+
+/* 하이라이트 (드래그 선택) */
+.fc .fc-highlight {
+  background: #dbeafe !important;
+  border-radius: 4px;
+}
+
+/* 테두리 정리 */
+.fc .fc-scrollgrid {
+  border: none !important;
+}
+.fc .fc-scrollgrid td:last-child {
+  border-right: none !important;
+}
+.fc .fc-scrollgrid-section > td {
+  border: none !important;
+}
+.fc thead {
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* 더보기 버튼 */
+.fc .fc-daygrid-more-link {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #3b82f6 !important;
+}

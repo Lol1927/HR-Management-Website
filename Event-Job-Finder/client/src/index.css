@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════════
+   COLOR SYSTEM — Deep Navy & Slate (Corporate)
+══════════════════════════════════════════ */
+:root {
+  --background:              210 20% 98%;   /* #F8FAFC */
+  --foreground:              220 40% 10%;   /* near-black navy */
+  --border:                  214 20% 89%;
+
+  --card:                    0 0% 100%;
+  --card-foreground:         220 40% 10%;
+
+  --popover:                 0 0% 100%;
+  --popover-foreground:      220 40% 10%;
+
+  /* ★ Deep Navy Primary */
+  --primary:                 220 70% 33%;   /* #1E3A8A */
+  --primary-foreground:      0 0% 100%;
+
+  --secondary:               210 16% 93%;
+  --secondary-foreground:    220 30% 25%;
+
+  --muted:                   210 14% 94%;
+  --muted-foreground:        215 16% 48%;
+
+  --accent:                  213 80% 94%;
+  --accent-foreground:       220 70% 33%;
+
+  --destructive:             0 72% 54%;
+  --destructive-foreground:  0 0% 100%;
+
+  --input:                   214 20% 89%;
+  --ring:                    220 70% 33%;
+  --radius:                  0.5rem;
+
+  /* Shadows */
+  --shadow-xs:  0 1px 2px hsl(220 40% 10% / .04);
+  --shadow-sm:  0 1px 4px hsl(220 40% 10% / .06), 0 1px 2px hsl(220 40% 10% / .03);
+  --shadow:     0 4px 10px hsl(220 40% 10% / .07), 0 2px 4px hsl(220 40% 10% / .04);
+  --shadow-md:  0 8px 20px hsl(220 40% 10% / .08), 0 3px 8px hsl(220 40% 10% / .04);
+  --shadow-lg:  0 16px 32px hsl(220 40% 10% / .10);
+
+  --elevate-1: rgba(0,0,0,.025);
+  --elevate-2: rgba(0,0,0,.06);
+  --button-outline: rgba(0,0,0,.07);
+  --badge-outline:  rgba(0,0,0,.04);
+  --opaque-button-border-intensity: -8;
+}
+
+.dark {
+  --background:              222 20% 8%;
+  --foreground:              210 14% 93%;
+  --border:                  220 14% 18%;
+  --card:                    222 18% 11%;
+  --card-foreground:         210 14% 93%;
+  --popover:                 222 18% 11%;
+  --popover-foreground:      210 14% 93%;
+  --primary:                 217 80% 58%;
+  --primary-foreground:      222 20% 8%;
+  --secondary:               220 14% 18%;
+  --secondary-foreground:    210 10% 72%;
+  --muted:                   220 14% 18%;
+  --muted-foreground:        215 10% 52%;
+  --accent:                  217 55% 22%;
+  --accent-foreground:       217 80% 70%;
+  --destructive:             0 65% 50%;
+  --destructive-foreground:  0 0% 100%;
+  --input:                   220 14% 20%;
+  --ring:                    217 80% 58%;
+
+  --shadow-xs:  0 1px 2px hsl(0 0% 0% / .4);
+  --shadow-sm:  0 2px 6px hsl(0 0% 0% / .45);
+  --shadow:     0 4px 12px hsl(0 0% 0% / .5);
+  --shadow-md:  0 8px 24px hsl(0 0% 0% / .55);
+  --shadow-lg:  0 16px 40px hsl(0 0% 0% / .6);
+
+  --elevate-1: rgba(255,255,255,.04);
+  --elevate-2: rgba(255,255,255,.08);
+  --button-outline: rgba(255,255,255,.10);
+  --badge-outline:  rgba(255,255,255,.05);
+  --opaque-button-border-intensity: 9;
+}
+
+/* ══════════════════════════════════════════
+   BASE
+══════════════════════════════════════════ */
+@layer base {
+  * { @apply border-border; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+
+  input[type="search"]::-webkit-search-cancel-button { @apply hidden; }
+}
+
+/* ══════════════════════════════════════════
+   UTILITIES
+══════════════════════════════════════════ */
+@layer utilities {
+  .hover-elevate {
+    transition: box-shadow .18s ease, transform .15s ease;
+  }
+  .hover-elevate:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+}

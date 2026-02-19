@@ -1,0 +1,22 @@
+{
+  "name": "job-finder-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Event Job Finder serverless backend for job seekers",
+  "scripts": {
+    "deploy:dev": "npx serverless deploy --stage dev",
+    "deploy:prod": "npx serverless deploy --stage prod",
+    "offline": "npx serverless offline --stage dev",
+    "remove:dev": "npx serverless remove --stage dev",
+    "remove:prod": "npx serverless remove --stage prod"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/lib-dynamodb": "^3.600.0"
+  },
+  "devDependencies": {
+    "serverless": "^3.39.0",
+    "serverless-dotenv-plugin": "^4.0.2",
+    "serverless-offline": "^13.3.0"
+  }
+}

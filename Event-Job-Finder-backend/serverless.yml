@@ -1,0 +1,356 @@
+service: job-finder-api
+
+useDotenv: true
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-2
+  stage: ${opt:stage, 'dev'}
+
+  environment:
+    EVENTS_TABLE: Events
+    PROFILES_TABLE: ${self:service}-profiles-${sls:stage}
+    APPLICATIONS_TABLE: ${self:service}-applications-${sls:stage}
+    REGULAR_TABLE: ${self:service}-regular-${sls:stage}
+
+  iam:
+    role:
+      statements:
+        # Events 테이블 (구직자는 읽기 전용, 관리자 백엔드와 공유)
+        - Effect: Allow
+          Action:
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:Query
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.EVENTS_TABLE}"
+
+        # Profiles 테이블
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.PROFILES_TABLE}"
+
+        # Applications 테이블
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+            - dynamodb:Query
+          Resource:
+            - "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.APPLICATIONS_TABLE}"
+            - "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.APPLICATIONS_TABLE}/index/*"
+
+        # Regular Applications 테이블
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+          Resource: "arn:aws:dynamodb:${aws:region}:*:table/${self:provider.environment.REGULAR_TABLE}"
+
+functions:
+  # --- 관리자 전용 (인증 없음, HR Management에서 호출) ---
+  adminHandler:
+    handler: functions/adminHandler.handler
+    events:
+      - http:
+          path: api/admin/applications
+          method: get
+          cors: true
+      - http:
+          path: api/admin/applications/{id}/status
+          method: patch
+          cors: true
+
+  # --- 이벤트 조회 (공개, 인증 불필요) ---
+  eventHandler:
+    handler: functions/eventHandler.handler
+    events:
+      - http:
+          path: api/events
+          method: get
+          cors: true
+      - http:
+          path: api/events/{id}
+          method: get
+          cors: true
+
+  # --- 프로필 CRUD (인증 필요) ---
+  profileHandler:
+    handler: functions/profileHandler.handler
+    events:
+      - http:
+          path: api/profile
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/profile
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/profile
+          method: patch
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+
+  # --- 지원서 CRUD (인증 필요) ---
+  applicationHandler:
+    handler: functions/applicationHandler.handler
+    events:
+      - http:
+          path: api/my-applications
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/applications/by-event/{eventId}
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/applications
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/applications/{id}
+          method: patch
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/applications/{id}
+          method: delete
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/applications/detail/{id}
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+
+  # --- 상시 근무 CRUD (인증 필요) ---
+  regularApplicationHandler:
+    handler: functions/regularApplicationHandler.handler
+    events:
+      - http:
+          path: api/regular-application
+          method: get
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/regular-application
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+      - http:
+          path: api/regular-application
+          method: patch
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+
+resources:
+  Resources:
+    # ===== Cognito User Pool =====
+    JobFinderUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: job-finder-user-pool-${sls:stage}
+        AutoVerifiedAttributes:
+          - email
+        UsernameAttributes:
+          - email
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: true
+          - Name: name
+            Required: false
+            Mutable: true
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+            RequireUppercase: false
+
+    # ===== Cognito User Pool Client =====
+    JobFinderUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: job-finder-web-client-${sls:stage}
+        UserPoolId:
+          Ref: JobFinderUserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+        GenerateSecret: false
+        SupportedIdentityProviders:
+          - COGNITO
+        AllowedOAuthFlows:
+          - code
+          - implicit
+        AllowedOAuthScopes:
+          - email
+          - openid
+          - profile
+        AllowedOAuthFlowsUserPoolClient: true
+        CallbackURLs:
+          - http://localhost:5173/callback
+        LogoutURLs:
+          - http://localhost:5173
+
+    # ===== Cognito User Pool Domain =====
+    JobFinderUserPoolDomain:
+      Type: AWS::Cognito::UserPoolDomain
+      Properties:
+        Domain: job-finder-${sls:stage}-${aws:accountId}
+        UserPoolId:
+          Ref: JobFinderUserPool
+
+    # ===== API Gateway Cognito Authorizer =====
+    ApiGatewayAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: CognitoAuthorizer
+        Type: COGNITO_USER_POOLS
+        IdentitySource: method.request.header.Authorization
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ProviderARNs:
+          - Fn::GetAtt:
+              - JobFinderUserPool
+              - Arn
+
+    # ===== DynamoDB: Events (기존 관리자 테이블이 없으므로 생성) =====
+    EventsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.EVENTS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    # ===== DynamoDB: Profiles =====
+    ProfilesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.PROFILES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    # ===== DynamoDB: Applications =====
+    ApplicationsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.APPLICATIONS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: eventId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        GlobalSecondaryIndexes:
+          - IndexName: userId-index
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: eventId-index
+            KeySchema:
+              - AttributeName: eventId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    # ===== DynamoDB: Regular Applications =====
+    RegularTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.REGULAR_TABLE}
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+  Outputs:
+    UserPoolId:
+      Value:
+        Ref: JobFinderUserPool
+    UserPoolClientId:
+      Value:
+        Ref: JobFinderUserPoolClient
+    UserPoolDomain:
+      Value:
+        Fn::Sub: job-finder-${sls:stage}-${aws:accountId}.auth.${aws:region}.amazoncognito.com

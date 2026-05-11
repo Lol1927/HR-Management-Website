@@ -8,23 +8,44 @@ A full-stack, cloud-native workforce management system for event staffing operat
 
 ## Live Architecture
 
-```
-┌─────────────────┐        ┌──────────────────────────────────────┐
-│  Admin Web App  │───────▶│             AWS Cloud (us-east-2)     │
-│  React 19 + TS  │        │                                       │
-└─────────────────┘        │  API Gateway ──▶ Lambda Functions     │
-                           │                        │               │
-┌─────────────────┐        │                   DynamoDB Tables      │
-│  Job Seeker App │───────▶│  API Gateway ──▶ Lambda Functions     │
-│  React + Vite   │        │                        │               │
-└─────────────────┘        │              ┌─────────┴──────────┐   │
-                           │              │  employees │ events  │   │
-                           │              │  positions │ history │   │
-                           │              │  provinces │ cities  │   │
-                           │              └────────────────────┘   │
-                           │                                       │
-                           │  Serverless Framework (CI/CD + IaC)  │
-                           └──────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Client["Client Side"]
+        A["🖥️ Admin Dashboard\nReact 19 · Tailwind CSS · i18next"]
+        B["📱 Job Seeker Portal\nReact 18 · TypeScript · Vite · shadcn/ui"]
+    end
+
+    subgraph AWS["☁️  AWS Cloud  (us-east-2)"]
+        subgraph Gateway["API Gateway"]
+            C["Admin API"]
+            D["Job Seeker API"]
+        end
+
+        subgraph Functions["Lambda Functions"]
+            E["employeeHandler\npositionHandler"]
+            F["eventHandler\nhistoryHandler"]
+            G["provinceHandler\ncityHandler"]
+        end
+
+        subgraph Storage["DynamoDB Tables"]
+            H[("employees\npositions")]
+            I[("events\nhistory")]
+            J[("provinces\ncities")]
+        end
+
+        K["⚙️ Serverless Framework\nCI/CD · IaC · stage-based deploy"]
+    end
+
+    A -->|HTTPS| C
+    B -->|HTTPS| D
+    C --> E & F & G
+    D --> E & F & G
+    E --> H
+    F --> I
+    G --> J
+    K -.->|provisions| Gateway
+    K -.->|provisions| Functions
+    K -.->|provisions| Storage
 ```
 
 ---
